@@ -1,0 +1,8 @@
+# 3rd party packages
+node_modules
+
+# secrets
+.env
+
+# built js files
+dist
