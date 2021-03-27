@@ -4,7 +4,7 @@
   "description": "log and track workouts",
   "main": "dist/server.js",
   "scripts": {
-    "test": "jest",
+    "test": "jest --maxWorkers 1",
     "start": "npx tsc && node dist/server.js"
   },
   "repository": {
