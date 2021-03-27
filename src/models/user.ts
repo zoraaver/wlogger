@@ -1,4 +1,5 @@
 import { Schema, model, Document } from "mongoose";
+import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import validator from "validator";
 import { workoutPlanDocument } from "./workoutPlan";
@@ -12,6 +13,8 @@ export interface userDocument extends Document {
   height?: number;
   workoutPlans: Array<workoutPlanDocument["_id"]>;
   workoutSessions: Array<workoutSessionDocument["_id"]>;
+  authenticate: (password: string) => Promise<boolean>;
+  token?: string;
 }
 
 const userSchema = new Schema<userDocument>({
@@ -44,5 +47,20 @@ userSchema.pre("save", async function () {
   if (!this.password) throw new Error("Password is required");
   this.password = await bcrypt.hash(this.password, 12);
 });
+
+// convenience attribute on User model to get a JWT for the user
+userSchema.virtual("token").get(function (this: userDocument): string {
+  if (!this._id) throw Error("_id for user has not yet been created");
+  const userId: string = this._id.toString();
+  return jwt.sign(userId, process.env.JWT_SECRET as string);
+});
+
+// check whether a given password matches the hashed db password for the user
+userSchema.methods.authenticate = function (
+  password: string
+): Promise<boolean> {
+  if (!this.password) throw new Error("No password found for this user");
+  return bcrypt.compare(password, this.password);
+};
 
 export default model<userDocument>("User", userSchema);

@@ -1,8 +1,9 @@
 import { app } from "../src/app";
+import jwt from "jsonwebtoken";
 import request from "supertest";
 import { MONGO_TEST_URI } from "../src/util/database";
 import mongoose from "mongoose";
-import User from "../src/models/user";
+import User, { userDocument } from "../src/models/user";
 
 beforeAll(async () => {
   await mongoose.connect(MONGO_TEST_URI, {
@@ -51,15 +52,34 @@ describe("POST /auth/login", () => {
   });
 
   describe("with correct credentials", () => {
+    const validLoginData: loginData = {
+      email: "test@test.com",
+      password: "password",
+    };
+
     it("should respond with the correct user data", async () => {
-      const response = await postLogin({
-        email: "test@test.com",
-        password: "password",
-      });
+      const response = await postLogin(validLoginData);
 
       expect(response.status).toBe(200);
       expect(response.body).toHaveProperty("user");
-      expect(response.body.user.email).toBe("test@test.com");
+      expect(response.body.user.email).toBe(validLoginData.email);
+    });
+
+    it("should respond with a JWT containing the user's id", async () => {
+      const response = await postLogin(validLoginData);
+
+      const user: userDocument | null = await User.findOne(
+        { email: validLoginData.email },
+        "_id"
+      );
+
+      expect(response.status).toBe(200);
+      expect(response.body.user).toHaveProperty("token");
+      const token: string = response.body.user.token;
+      expect(jwt.verify(token, process.env.JWT_SECRET as string)).toBe(
+        // user and user._id must be defined at this point as the user is inserted into the db before all tests
+        user!._id!.toString()
+      );
     });
   });
 });
