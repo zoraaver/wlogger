@@ -4,4 +4,6 @@ export async function create(
   req: Request,
   res: Response,
   next: NextFunction
-): Promise<void> {}
+): Promise<void> {
+  res.status(201).json({ message: "stuff" });
+}
