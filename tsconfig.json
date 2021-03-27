@@ -23,5 +23,6 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true
   },
-  "compileOnSave": true
+  "compileOnSave": true,
+  "include": ["src/**/*"]
 }
