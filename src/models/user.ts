@@ -1,4 +1,5 @@
 import { Schema, model, Document } from "mongoose";
+import validator from "validator";
 import { workoutPlanDocument } from "./workoutPlan";
 import { workoutSessionDocument } from "./workoutSession";
 
@@ -13,9 +14,16 @@ export interface userDocument extends Document {
 }
 
 const userSchema = new Schema<userDocument>({
-  email: { type: String, required: true },
-  password: { type: String },
-  age: { type: Number },
+  email: {
+    type: String,
+    required: [true, "Email is a required field"],
+    validate: {
+      validator: (email: string) => validator.isEmail(email),
+      message: "Email is invalid",
+    },
+  },
+  password: { type: String, required: [true, "Password is required"] },
+  age: Number,
   weight: Number,
   height: Number,
   workoutPlans: [

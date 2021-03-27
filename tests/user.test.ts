@@ -47,10 +47,14 @@ describe("POST /users", () => {
       response = await postUsers(validUserData);
     });
 
+    afterAll(async () => {
+      await User.deleteMany({});
+    });
+
     it("should respond with a new user", () => {
       expect(response.status).toBe(201);
       expect(response.body).toHaveProperty("user");
-      expect(response.body.user).toBe({
+      expect(response.body.user).toStrictEqual({
         email: validUserData.email,
         workoutPlans: [],
       });
@@ -72,14 +76,14 @@ describe("POST /users", () => {
         confirmPassword: "password",
       });
       expect(response.status).toBe(406);
-      expect(response.body.message).toBe("Email is incorrect");
+      expect(response.body.message).toBe("Email is invalid");
     });
 
     it("should respond with a 406 if the password is absent", async () => {
       const response: request.Response = await postUsers({
         email: "test@test.com",
         password: "",
-        confirmPassword: "pasword",
+        confirmPassword: "",
       });
       expect(response.status).toBe(406);
       expect(response.body.message).toBe("Password is required");
@@ -106,7 +110,7 @@ describe("POST /users", () => {
       const response: request.Response = await postUsers({
         email: "test@test.com",
         password: "password",
-        confirmPassword: "pasword",
+        confirmPassword: "password",
       });
 
       expect(response.status).toBe(406);
