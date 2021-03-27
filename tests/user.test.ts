@@ -95,5 +95,21 @@ describe("POST /users", () => {
         "Password and confirm password do not match"
       );
     });
+
+    it("should respond with a 406 if the email already exists", async () => {
+      const user: userDocument = new User({
+        email: "test@test.com",
+        password: "password",
+      });
+      await user.save();
+      const response: request.Response = await postUsers({
+        email: "test@test.com",
+        password: "password",
+        confirmPassword: "pasword",
+      });
+
+      expect(response.status).toBe(406);
+      expect(response.body.message).toBe("Email has already been taken");
+    });
   });
 });
