@@ -4,4 +4,6 @@ export async function login(
   req: Request,
   res: Response,
   next: NextFunction
-): Promise<void> {}
+): Promise<void> {
+  res.json(null);
+}
