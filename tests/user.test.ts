@@ -3,6 +3,7 @@ import request from "supertest";
 import { MONGO_TEST_URI } from "../src/util/database";
 import mongoose from "mongoose";
 import User, { userDocument } from "../src/models/user";
+import bcrypt from "bcryptjs";
 
 beforeAll(async () => {
   await mongoose.connect(MONGO_TEST_URI, {
@@ -65,6 +66,17 @@ describe("POST /users", () => {
         email: validUserData.email,
       });
       expect(user).not.toBeNull();
+    });
+
+    it("should store a hashed password in the database", async () => {
+      const user: userDocument | null = await User.findOne({
+        email: validUserData.email,
+      });
+      expect(user).not.toBeNull();
+      expect(user!.password).not.toBeNull();
+      expect(await bcrypt.compare("password", user!.password as string)).toBe(
+        true
+      );
     });
   });
 
