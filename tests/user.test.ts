@@ -4,30 +4,96 @@ import { MONGO_TEST_URI } from "../src/util/database";
 import mongoose from "mongoose";
 import User, { userDocument } from "../src/models/user";
 
+beforeAll(async () => {
+  await mongoose.connect(MONGO_TEST_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  });
+});
+
+afterAll(async () => {
+  await mongoose.disconnect();
+});
+
 describe("POST /users", () => {
-  beforeAll(async () => {
-    await mongoose.connect(MONGO_TEST_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
+  type userData = {
+    email: string;
+    password: string;
+    confirmPassword: string;
+  };
+
+  const validUserData: userData = {
+    email: "test@test.com",
+    password: "password",
+    confirmPassword: "password",
+  };
+
+  function postUsers({
+    email,
+    password,
+    confirmPassword,
+  }: userData): request.Test {
+    return request(app)
+      .post("/users")
+      .send({ email, password, confirmPassword })
+      .set("Accept", "application/json");
+  }
+
+  describe("with a valid request body", () => {
+    let response: request.Response;
+
+    beforeAll(async () => {
+      response = await postUsers(validUserData);
+    });
+
+    it("should respond with a new user", () => {
+      expect(response.status).toBe(201);
+      expect(response.body).toHaveProperty("user");
+      expect(response.body.user).toBe({
+        email: validUserData.email,
+        workoutPlans: [],
+      });
+    });
+
+    it("should insert a user into the database", async () => {
+      const user: userDocument | null = await User.findOne({
+        email: validUserData.email,
+      });
+      expect(user).not.toBeNull();
     });
   });
 
-  afterAll(async () => {
-    await mongoose.disconnect();
-  });
+  describe("with an invalid request body", () => {
+    it("should respond with a 406 if the email is invalid", async () => {
+      const response: request.Response = await postUsers({
+        email: "23ijkljd@",
+        password: "password",
+        confirmPassword: "password",
+      });
+      expect(response.status).toBe(406);
+      expect(response.body.message).toBe("Email is incorrect");
+    });
 
-  it("should create and return a new user if the request body is valid", async () => {
-    const email: string = "test@gmail.com";
-    const password: string = "password";
-    const confirmPassword: string = "password";
-    await request(app)
-      .post("/users")
-      .send({ email, password, confirmPassword })
-      .set("Accept", "application/json")
-      .expect(201);
+    it("should respond with a 406 if the password is absent", async () => {
+      const response: request.Response = await postUsers({
+        email: "test@test.com",
+        password: "",
+        confirmPassword: "pasword",
+      });
+      expect(response.status).toBe(406);
+      expect(response.body.message).toBe("Password is required");
+    });
 
-    const user: userDocument | null = await User.findOne({ email });
-    expect(user).toHaveProperty("email");
-    expect(user?.email).toBe("test@gmail.com");
+    it("should respond with a 406 if the password and password confirmation do not match", async () => {
+      const response: request.Response = await postUsers({
+        email: "test@test.com",
+        password: "password",
+        confirmPassword: "pasword",
+      });
+      expect(response.status).toBe(406);
+      expect(response.body.message).toBe(
+        "Password and confirm password do not match"
+      );
+    });
   });
 });
