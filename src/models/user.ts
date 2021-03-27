@@ -1,4 +1,5 @@
 import { Schema, model, Document } from "mongoose";
+import bcrypt from "bcryptjs";
 import validator from "validator";
 import { workoutPlanDocument } from "./workoutPlan";
 import { workoutSessionDocument } from "./workoutSession";
@@ -36,6 +37,12 @@ const userSchema = new Schema<userDocument>({
       workoutSession: { type: Schema.Types.ObjectId, ref: "workoutSession" },
     },
   ],
+});
+
+// store hashed passwords in db
+userSchema.pre("save", async function () {
+  if (!this.password) throw new Error("Password is required");
+  this.password = await bcrypt.hash(this.password, 12);
 });
 
 export default model<userDocument>("User", userSchema);
