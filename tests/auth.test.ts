@@ -5,12 +5,19 @@ import { MONGO_TEST_URI } from "../src/util/database";
 import mongoose from "mongoose";
 import User, { userDocument } from "../src/models/user";
 
+type loginData = { email: string; password: string };
+
+const validLoginData: loginData = {
+  email: "test@test.com",
+  password: "password",
+};
+
 beforeAll(async () => {
   await mongoose.connect(MONGO_TEST_URI, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
   });
-  const user = new User({ email: "test@test.com", password: "password" });
+  const user = new User(validLoginData);
   await user.save();
 });
 
@@ -20,8 +27,6 @@ afterAll(async () => {
 });
 
 describe("POST /auth/login", () => {
-  type loginData = { email: string; password: string };
-
   function postLogin(data: loginData): request.Test {
     return request(app)
       .post("/auth/login")
@@ -42,7 +47,7 @@ describe("POST /auth/login", () => {
 
     it("should respond with a 401 if the password is incorrect", async () => {
       const response: request.Response = await postLogin({
-        email: "test@test.com",
+        email: validLoginData.email,
         password: "asdfdddd",
       });
 
@@ -52,11 +57,6 @@ describe("POST /auth/login", () => {
   });
 
   describe("with correct credentials", () => {
-    const validLoginData: loginData = {
-      email: "test@test.com",
-      password: "password",
-    };
-
     it("should respond with the correct user data", async () => {
       const response = await postLogin(validLoginData);
 
