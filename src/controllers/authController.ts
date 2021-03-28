@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import User, { userDocument } from "../models/user";
-import { google } from "googleapis";
+import { LoginTicket, OAuth2Client, TokenPayload } from "google-auth-library";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -28,14 +28,13 @@ export async function googleLogin(
   res: Response,
   next: NextFunction
 ): Promise<void> {
-  const url = oauth2client.generateAuthUrl({
-    access_type: "online",
-    scope: "email",
+  const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+  const { token } = req.body;
+  const ticket: LoginTicket = await client.verifyIdToken({
+    idToken: token,
+    audience: process.env.GOOGLE_CLIENT_ID,
   });
-  res.json({ url });
+  const payload: TokenPayload | undefined = ticket.getPayload();
+  console.log(payload);
+  res.redirect("http://localhost:3000");
 }
-const oauth2client = new google.auth.OAuth2({
-  clientId: process.env.GOOGLE_CLIENT_ID,
-  clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-  redirectUri: `http://localhost:${process.env.PORT || 8080}`,
-});
