@@ -13,12 +13,12 @@ app.use(express.json());
 // security
 app.use(helmet());
 
-app.use("/auth", authRoutes);
-app.use("/users", userRoutes);
-
 if (process.env.NODE_ENV !== "production") {
   // logging
   app.use(morgan("dev"));
   // disable all cors errors
   app.use(cors());
 }
+
+app.use("/auth", authRoutes);
+app.use("/users", userRoutes);
