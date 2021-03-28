@@ -43,7 +43,7 @@ const userSchema = new Schema<userDocument>({
 });
 
 // store hashed passwords in db
-userSchema.pre("save", async function () {
+userSchema.pre("save", async function (): Promise<void> {
   if (!this.password) throw new Error("Password is required");
   this.password = await bcrypt.hash(this.password, 12);
 });
