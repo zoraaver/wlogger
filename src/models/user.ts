@@ -44,13 +44,15 @@ const userSchema = new Schema<userDocument>({
   ],
 });
 
-// store hashed passwords in db
-userSchema.pre("save", async function (): Promise<void> {
+async function hashDbPassword(this: userDocument): Promise<void> {
   if (this.googleId) return;
   if (!this.password)
     throw new Error("Validation error: password: Password is required");
   this.password = await bcrypt.hash(this.password, 12);
-});
+}
+
+// store hashed passwords in db
+userSchema.pre("save", hashDbPassword);
 
 // convenience attribute on User model to get a JWT for the user
 userSchema.virtual("token").get(function (this: userDocument): string {

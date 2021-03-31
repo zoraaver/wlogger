@@ -13,7 +13,7 @@ export function setCurrentUser(
     next();
   } else {
     try {
-      req.currentUserId = Number(
+      req.currentUserId = String(
         jwt.verify(authHeader, process.env.JWT_SECRET as string)
       );
       next();
