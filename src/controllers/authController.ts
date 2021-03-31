@@ -28,6 +28,33 @@ export async function login(
   res.json({ user: { email: user.email, token: user.token } });
 }
 
+export async function validate(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  if (req.currentUserId) {
+    let user;
+    try {
+      user = await User.findById(req.currentUserId, "email");
+    } catch (error) {
+      res
+        .status(401)
+        .json({ message: "This page requires you to be logged in." });
+      return;
+    }
+    if (!user) {
+      res.status(404).json({ message: "User cannot be found." });
+      return;
+    }
+    res.json({ user: { email: user.email, token: user.token } });
+  } else {
+    res
+      .status(401)
+      .json({ message: "This page requires you to be logged in." });
+  }
+}
+
 export async function googleLogin(
   req: Request,
   res: Response,
@@ -47,9 +74,10 @@ export async function googleLogin(
       return;
     }
     // then look for a matching email (i.e. user has signed up previously via email and password)
-    user = await User.findOne({ email }, "email token");
+    user = await User.findOne({ email }, "email token password");
     if (user) {
-      await user.updateOne({ googleId });
+      user.googleId = googleId;
+      await user.save();
       res.json({ user: { email: user.email, token: user.token } });
       return;
     }
