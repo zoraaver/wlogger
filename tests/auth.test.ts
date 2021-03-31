@@ -125,9 +125,11 @@ describe("POST /auth/google", () => {
 
   describe("with invalid credentials", () => {
     it("should respond with a 401 if the id token is not valid", async () => {
+      const userCount: number = await User.estimatedDocumentCount();
       const response = await postGoogleLogin("invalid token!");
       expect(response.status).toBe(401);
       expect(response.body.message).toBe("Authentication failed");
+      expect(await User.estimatedDocumentCount()).toBe(userCount);
     });
   });
 
