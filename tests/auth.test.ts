@@ -1,6 +1,6 @@
 import { app } from "../src/app";
 import jwt from "jsonwebtoken";
-import request from "supertest";
+import request, { Response, Test } from "supertest";
 import { MONGO_TEST_URI } from "../src/util/database";
 import mongoose from "mongoose";
 import User, { userDocument } from "../src/models/user";
@@ -30,7 +30,11 @@ afterAll(async () => {
 });
 
 describe("POST /auth/login", () => {
-  function postLogin(data: loginData): request.Test {
+  afterAll(async () => {
+    await User.deleteMany({});
+  });
+
+  function postLogin(data: loginData): Test {
     return request(app)
       .post("/auth/login")
       .send(data)
@@ -39,7 +43,7 @@ describe("POST /auth/login", () => {
 
   describe("with invalid credentials", () => {
     it("should respond with a 401 if the user cannot be found", async () => {
-      const response: request.Response = await postLogin({
+      const response: Response = await postLogin({
         email: "john@gmail.com",
         password: "password",
       });
@@ -49,7 +53,7 @@ describe("POST /auth/login", () => {
     });
 
     it("should respond with a 401 if the password is incorrect", async () => {
-      const response: request.Response = await postLogin({
+      const response: Response = await postLogin({
         email: validLoginData.email,
         password: "asdfdddd",
       });
@@ -57,11 +61,26 @@ describe("POST /auth/login", () => {
       expect(response.status).toBe(401);
       expect(response.body.message).toBe("Invalid email or password");
     });
+
+    it("should respond with a 403 if the user has a google id", async () => {
+      const email = "another@test.com";
+      const user: userDocument | null = await User.create({
+        email,
+        googleId: "fake google id",
+      });
+      const response: Response = await postLogin({
+        email,
+        password: "password",
+      });
+      expect(response.status).toBe(403);
+      expect(response.body.message).toBe("Please sign in with google");
+      await user.delete();
+    });
   });
 
   describe("with valid credentials", () => {
     it("should respond with the correct user data", async () => {
-      const response = await postLogin(validLoginData);
+      const response: Response = await postLogin(validLoginData);
 
       expect(response.status).toBe(200);
       expect(response.body).toHaveProperty("user");
@@ -69,7 +88,7 @@ describe("POST /auth/login", () => {
     });
 
     it("should respond with a JWT containing the user's id", async () => {
-      const response = await postLogin(validLoginData);
+      const response: Response = await postLogin(validLoginData);
 
       const user: userDocument | null = await User.findOne(
         { email: validLoginData.email },
@@ -116,7 +135,7 @@ jest.mock("google-auth-library", () => {
 });
 
 describe("POST /auth/google", () => {
-  function postGoogleLogin(idToken: string): request.Test {
+  function postGoogleLogin(idToken: string): Test {
     return request(app)
       .post("/auth/google")
       .send({ idToken })
@@ -126,7 +145,7 @@ describe("POST /auth/google", () => {
   describe("with invalid credentials", () => {
     it("should respond with a 401 if the id token is not valid", async () => {
       const userCount: number = await User.estimatedDocumentCount();
-      const response = await postGoogleLogin("invalid token!");
+      const response: Response = await postGoogleLogin("invalid token!");
       expect(response.status).toBe(401);
       expect(response.body.message).toBe("Authentication failed");
       expect(await User.estimatedDocumentCount()).toBe(userCount);
@@ -139,7 +158,7 @@ describe("POST /auth/google", () => {
     });
 
     it("should create a user if the user is not already present in the database", async () => {
-      const response = await postGoogleLogin(validIdToken);
+      const response: Response = await postGoogleLogin(validIdToken);
       expect(response.status).toBe(201);
       expect(response.body.user).toHaveProperty("token");
       const token: string = response.body.user.token;
@@ -153,7 +172,7 @@ describe("POST /auth/google", () => {
 
     it("should respond with a JWT for an already existing user with a google id", async () => {
       const user: userDocument | null = await User.create({ email, googleId });
-      const response = await postGoogleLogin(validIdToken);
+      const response: Response = await postGoogleLogin(validIdToken);
 
       expect(response.status).toBe(200);
       expect(response.body.user).toHaveProperty("token");
@@ -167,7 +186,7 @@ describe("POST /auth/google", () => {
         email,
         password: "password",
       });
-      const response = await postGoogleLogin(validIdToken);
+      const response: Response = await postGoogleLogin(validIdToken);
 
       expect(response.status).toBe(200);
       expect(response.body.user).toHaveProperty("token");
@@ -177,5 +196,45 @@ describe("POST /auth/google", () => {
       expect(user!.googleId).toBe(googleId);
       expect(await User.estimatedDocumentCount()).toBe(1);
     });
+  });
+});
+
+describe("POST /validate", () => {
+  function postValidate(id?: string): Test {
+    const token = id ? jwt.sign(id, JWT_SECRET) : undefined;
+    if (token) {
+      return request(app).post("/auth/validate").set("Authorisation", token);
+    }
+    return request(app).post("/auth/validate");
+  }
+
+  it("should respond with a JWT if the token is valid", async () => {
+    const user: userDocument | null = await User.create({
+      email,
+      password: "password",
+    });
+    console.assert(user);
+    const id = user._id;
+    const response: Response = await postValidate(id.toString());
+    expect(response.status).toBe(200);
+    expect(response.body.user).toHaveProperty("token");
+    const token = response.body.user.token;
+    expect(jwt.verify(token, JWT_SECRET)).toEqual(user.id.toString());
+  });
+
+  it("should respond with a 401 if the user id is not a valid user id", async () => {
+    const response: Response = await postValidate("asdfsadf");
+    expect(response.status).toBe(401);
+    expect(response.body.message).toBe(
+      "This page requires you to be logged in."
+    );
+  });
+
+  it("should respond with a 401 if no token is sent", async () => {
+    const response: Response = await postValidate();
+    expect(response.status).toBe(401);
+    expect(response.body.message).toBe(
+      "This page requires you to be logged in."
+    );
   });
 });
