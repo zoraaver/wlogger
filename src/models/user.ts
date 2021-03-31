@@ -11,6 +11,7 @@ export interface userDocument extends Document {
   age?: number;
   weight?: number;
   height?: number;
+  googleId?: string;
   workoutPlans: Array<workoutPlanDocument["_id"]>;
   workoutSessions: Array<workoutSessionDocument["_id"]>;
   authenticate: (password: string) => Promise<boolean>;
@@ -26,10 +27,11 @@ const userSchema = new Schema<userDocument>({
       message: "Email is invalid",
     },
   },
-  password: { type: String, required: [true, "Password is required"] },
+  password: String,
   age: Number,
   weight: Number,
   height: Number,
+  googleId: String,
   workoutPlans: [
     {
       workoutPlan: { type: Schema.Types.ObjectId, ref: "workoutPlan" },
@@ -44,7 +46,9 @@ const userSchema = new Schema<userDocument>({
 
 // store hashed passwords in db
 userSchema.pre("save", async function (): Promise<void> {
-  if (!this.password) throw new Error("Password is required");
+  if (this.googleId) return;
+  if (!this.password)
+    throw new Error("Validation error: password: Password is required");
   this.password = await bcrypt.hash(this.password, 12);
 });
 
