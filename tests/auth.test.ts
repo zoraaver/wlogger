@@ -12,6 +12,9 @@ const validLoginData: loginData = {
   password: "password",
 };
 
+const JWT_SECRET = process.env.JWT_SECRET as string;
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID as string;
+
 beforeAll(async () => {
   await mongoose.connect(MONGO_TEST_URI, {
     useNewUrlParser: true,
@@ -34,7 +37,7 @@ describe("POST /auth/login", () => {
       .set("Accept", "application/json");
   }
 
-  describe("with incorrect credentials", () => {
+  describe("with invalid credentials", () => {
     it("should respond with a 401 if the user cannot be found", async () => {
       const response: request.Response = await postLogin({
         email: "john@gmail.com",
@@ -56,7 +59,7 @@ describe("POST /auth/login", () => {
     });
   });
 
-  describe("with correct credentials", () => {
+  describe("with valid credentials", () => {
     it("should respond with the correct user data", async () => {
       const response = await postLogin(validLoginData);
 
@@ -76,10 +79,101 @@ describe("POST /auth/login", () => {
       expect(response.status).toBe(200);
       expect(response.body.user).toHaveProperty("token");
       const token: string = response.body.user.token;
-      expect(jwt.verify(token, process.env.JWT_SECRET as string)).toBe(
+      expect(jwt.verify(token, JWT_SECRET)).toBe(
         // user and user._id must be defined at this point as the user is inserted into the db before all tests
         user!._id!.toString()
       );
+    });
+  });
+});
+
+const validIdToken: string = "valid token";
+const email: string = "test@gmail.com";
+const googleId: string = "mock google id";
+
+// mock verifyIdToken method from google auth library
+jest.mock("google-auth-library", () => {
+  return {
+    OAuth2Client: jest.fn().mockImplementation(() => {
+      return {
+        verifyIdToken: (options: { idToken: string; audience: string }) => {
+          const { idToken } = options;
+          return {
+            getPayload: () => {
+              if (idToken === validIdToken)
+                return {
+                  email,
+                  sub: googleId,
+                  aud: GOOGLE_CLIENT_ID,
+                };
+              throw new Error("Invalid token");
+            },
+          };
+        },
+      };
+    }),
+  };
+});
+
+describe("POST /auth/google", () => {
+  function postGoogleLogin(idToken: string): request.Test {
+    return request(app)
+      .post("/auth/google")
+      .send({ idToken })
+      .set("Accept", "application/json");
+  }
+
+  describe("with invalid credentials", () => {
+    it("should respond with a 401 if the id token is not valid", async () => {
+      const response = await postGoogleLogin("invalid token!");
+      expect(response.status).toBe(401);
+      expect(response.body.message).toBe("Authentication failed");
+    });
+  });
+
+  describe("with valid credentials", () => {
+    afterEach(async () => {
+      await User.deleteMany({});
+    });
+
+    it("should create a user if the user is not already present in the database", async () => {
+      const response = await postGoogleLogin(validIdToken);
+      expect(response.status).toBe(201);
+      expect(response.body.user).toHaveProperty("token");
+      const token: string = response.body.user.token;
+
+      const user: userDocument | null = await User.findOne({ email });
+      expect(user).not.toBeNull();
+      expect(user!.email).toBe(email);
+      expect(user!.googleId).toBe(googleId);
+      expect(jwt.verify(token, JWT_SECRET)).toBe(user!._id!.toString());
+    });
+
+    it("should respond with a JWT for an already existing user with a google id", async () => {
+      const user: userDocument | null = await User.create({ email, googleId });
+      const response = await postGoogleLogin(validIdToken);
+
+      expect(response.status).toBe(200);
+      expect(response.body.user).toHaveProperty("token");
+      const token: string = response.body.user.token;
+      expect(jwt.verify(token, JWT_SECRET)).toBe(user._id.toString());
+      expect(await User.estimatedDocumentCount()).toBe(1);
+    });
+
+    it("should respond with a JWT and update a user in the database who does not have a google id", async () => {
+      let user: userDocument | null = await User.create({
+        email,
+        password: "password",
+      });
+      const response = await postGoogleLogin(validIdToken);
+
+      expect(response.status).toBe(200);
+      expect(response.body.user).toHaveProperty("token");
+      const token: string = response.body.user.token;
+      expect(jwt.verify(token, JWT_SECRET)).toBe(user._id.toString());
+      user = await User.findOne({ email });
+      expect(user!.googleId).toBe(googleId);
+      expect(await User.estimatedDocumentCount()).toBe(1);
     });
   });
 });
