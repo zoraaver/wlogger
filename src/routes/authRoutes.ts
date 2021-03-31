@@ -6,4 +6,4 @@ export const authRoutes: Router = express.Router();
 
 authRoutes.post("/login", authController.login);
 authRoutes.post("/google", authController.googleLogin);
-authRoutes.post("/validate", setCurrentUser, authController.validate);
+authRoutes.get("/validate", setCurrentUser, authController.validate);

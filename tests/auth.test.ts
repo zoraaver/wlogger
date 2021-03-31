@@ -200,12 +200,12 @@ describe("POST /auth/google", () => {
 });
 
 describe("POST /validate", () => {
-  function postValidate(id?: string): Test {
+  function getValidate(id?: string): Test {
     const token = id ? jwt.sign(id, JWT_SECRET) : undefined;
     if (token) {
-      return request(app).post("/auth/validate").set("Authorisation", token);
+      return request(app).get("/auth/validate").set("Authorisation", token);
     }
-    return request(app).post("/auth/validate");
+    return request(app).get("/auth/validate");
   }
 
   it("should respond with a JWT if the token is valid", async () => {
@@ -215,7 +215,7 @@ describe("POST /validate", () => {
     });
     console.assert(user);
     const id = user._id;
-    const response: Response = await postValidate(id.toString());
+    const response: Response = await getValidate(id.toString());
     expect(response.status).toBe(200);
     expect(response.body.user).toHaveProperty("token");
     const token = response.body.user.token;
@@ -223,7 +223,7 @@ describe("POST /validate", () => {
   });
 
   it("should respond with a 401 if the user id is not a valid user id", async () => {
-    const response: Response = await postValidate("asdfsadf");
+    const response: Response = await getValidate("asdfsadf");
     expect(response.status).toBe(401);
     expect(response.body.message).toBe(
       "This page requires you to be logged in."
@@ -231,7 +231,7 @@ describe("POST /validate", () => {
   });
 
   it("should respond with a 401 if no token is sent", async () => {
-    const response: Response = await postValidate();
+    const response: Response = await getValidate();
     expect(response.status).toBe(401);
     expect(response.body.message).toBe(
       "This page requires you to be logged in."
