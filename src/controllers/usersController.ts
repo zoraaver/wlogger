@@ -1,5 +1,13 @@
 import { Request, Response, NextFunction } from "express";
+import sgMail from "@sendgrid/mail";
+import {
+  SENDGRID_KEY,
+  CLIENT_URL,
+  VERIFICATION_EMAIL_TEMPLATE_ID,
+} from "../../keys.json";
 import User, { userDocument } from "../models/user";
+
+sgMail.setApiKey(SENDGRID_KEY);
 
 export async function create(
   req: Request,
@@ -25,6 +33,7 @@ export async function create(
 
   try {
     await user.save();
+    sendVerificationEmail(email, user.getVerificationToken());
   } catch (error) {
     const errorMessage: string = error.message.split(": ")[2];
     res.status(406).json({ message: errorMessage });
@@ -33,4 +42,18 @@ export async function create(
   res
     .status(201)
     .json({ user: { email: user.email, workoutPlans: user.workoutPlans } });
+}
+
+async function sendVerificationEmail(email: string, token: string) {
+  const verifyLink: string = `${CLIENT_URL}/confirm/${token}`;
+  try {
+    await sgMail.send({
+      from: { email: "app@wlogger.uk", name: "wLogger" },
+      to: email,
+      dynamicTemplateData: { verifyLink },
+      templateId: VERIFICATION_EMAIL_TEMPLATE_ID,
+    });
+  } catch (error) {
+    console.error(error);
+  }
 }
