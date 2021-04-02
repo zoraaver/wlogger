@@ -4,7 +4,7 @@
     "module": "commonjs",
     "sourceMap": true,
     "outDir": "./dist",
-    "rootDir": "./src",
+    "rootDir": "./",
     "removeComments": true,
     "strict": true,
     "noUnusedLocals": true,
@@ -13,6 +13,7 @@
 
     "typeRoots": ["node_modules/@types", "@types"],
     "esModuleInterop": true,
+    "resolveJsonModule": true,
     /* Source Map Options */
     // "sourceRoot": "",                            /* Specify the location where debugger should locate TypeScript files instead of source locations. */
     // "mapRoot": "",                               /* Specify the location where debugger should locate map files instead of generated locations. */
@@ -24,5 +25,5 @@
     "forceConsistentCasingInFileNames": true
   },
   "compileOnSave": true,
-  "include": ["src/**/*", "@types/**/*"]
+  "include": ["src/**/*", "@types/**/*", "./keys.json"]
 }

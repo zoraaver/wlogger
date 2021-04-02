@@ -4,6 +4,7 @@ import request, { Response, Test } from "supertest";
 import { MONGO_TEST_URI } from "../src/util/database";
 import mongoose from "mongoose";
 import User, { userDocument } from "../src/models/user";
+import { JWT_SECRET, GOOGLE_CLIENT_ID } from "../keys.json";
 
 type loginData = { email: string; password: string };
 
@@ -11,9 +12,6 @@ const validLoginData: loginData = {
   email: "test@test.com",
   password: "password",
 };
-
-const JWT_SECRET = process.env.JWT_SECRET as string;
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID as string;
 
 beforeAll(async () => {
   await mongoose.connect(MONGO_TEST_URI, {

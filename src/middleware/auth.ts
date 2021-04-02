@@ -1,5 +1,6 @@
 import jwt from "jsonwebtoken";
 import { Request, Response, NextFunction } from "express";
+import { JWT_SECRET } from "../../keys.json";
 
 export function setCurrentUser(
   req: Request,
@@ -13,9 +14,7 @@ export function setCurrentUser(
     next();
   } else {
     try {
-      req.currentUserId = String(
-        jwt.verify(authHeader, process.env.JWT_SECRET as string)
-      );
+      req.currentUserId = String(jwt.verify(authHeader, JWT_SECRET));
       next();
     } catch (error) {
       next();

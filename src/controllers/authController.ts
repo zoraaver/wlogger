@@ -1,9 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import User, { userDocument } from "../models/user";
 import { LoginTicket, OAuth2Client, TokenPayload } from "google-auth-library";
-import dotenv from "dotenv";
-
-dotenv.config();
+import { GOOGLE_CLIENT_ID } from "../../keys.json";
 
 export async function login(
   req: Request,
@@ -93,13 +91,13 @@ export async function googleLogin(
 async function verifyGoogleIdToken(
   idToken: string
 ): Promise<{ email: string; googleId: string }> {
-  const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+  const client = new OAuth2Client(GOOGLE_CLIENT_ID);
   const ticket: LoginTicket = await client.verifyIdToken({
     idToken,
-    audience: process.env.GOOGLE_CLIENT_ID,
+    audience: GOOGLE_CLIENT_ID,
   });
   const payload: TokenPayload | undefined = ticket.getPayload();
-  if (!payload || payload.aud != process.env.GOOGLE_CLIENT_ID) {
+  if (!payload || payload.aud != GOOGLE_CLIENT_ID) {
     throw new Error("Authentication failed: aud does not match client id");
   }
   // the email is included in the scope so it will be in the returned payload
