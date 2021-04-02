@@ -4,6 +4,10 @@ import { MONGO_TEST_URI } from "../src/util/database";
 import mongoose from "mongoose";
 import User, { userDocument } from "../src/models/user";
 import bcrypt from "bcryptjs";
+import sgMail from "@sendgrid/mail";
+
+jest.mock("@sendgrid/mail");
+(sgMail.send as any).mockResolvedValue({});
 
 beforeAll(async () => {
   await mongoose.connect(MONGO_TEST_URI, {
