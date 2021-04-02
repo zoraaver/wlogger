@@ -80,7 +80,7 @@ export async function googleLogin(
       return;
     }
     // otherwise create a new user in db
-    user = new User({ email, googleId });
+    user = new User({ email, googleId, confirmed: true });
     await user.save();
     res.status(201).json({ user: { email: user.email, token: user.token } });
   } catch (error) {

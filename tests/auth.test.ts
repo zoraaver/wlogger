@@ -165,6 +165,7 @@ describe("POST /auth/google", () => {
       expect(user).not.toBeNull();
       expect(user!.email).toBe(email);
       expect(user!.googleId).toBe(googleId);
+      expect(user!.confirmed).toBe(true);
       expect(jwt.verify(token, JWT_SECRET)).toBe(user!._id!.toString());
     });
 
