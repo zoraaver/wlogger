@@ -2,6 +2,7 @@ import { Schema, model, Document } from "mongoose";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import validator from "validator";
+import { JWT_SECRET, JWT_EMAIL_VERIFICATION_SECRET } from "../../keys.json";
 import { workoutPlanDocument } from "./workoutPlan";
 import { workoutSessionDocument } from "./workoutSession";
 
@@ -9,12 +10,14 @@ export interface userDocument extends Document {
   email: string;
   password?: string;
   age?: number;
+  confirmed: boolean;
   weight?: number;
   height?: number;
   googleId?: string;
   workoutPlans: Array<workoutPlanDocument["_id"]>;
   workoutSessions: Array<workoutSessionDocument["_id"]>;
   authenticate: (password: string) => Promise<boolean>;
+  getVerificationToken: () => string;
   token?: string;
 }
 
@@ -31,6 +34,7 @@ const userSchema = new Schema<userDocument>({
   age: Number,
   weight: Number,
   height: Number,
+  confirmed: { type: Boolean, default: false },
   googleId: String,
   workoutPlans: [
     {
@@ -56,10 +60,19 @@ userSchema.pre("save", hashDbPassword);
 
 // convenience attribute on User model to get a JWT for the user
 userSchema.virtual("token").get(function (this: userDocument): string {
-  if (!this._id) throw Error("_id for user has not yet been created");
+  if (!this._id) throw new Error("_id for user has not yet been created");
   const userId: string = this._id.toString();
-  return jwt.sign(userId, process.env.JWT_SECRET as string);
+  return jwt.sign(userId, JWT_SECRET);
 });
+
+// generate separate token to verify user's email address
+userSchema.methods.getVerificationToken = function (): string {
+  if (!this._id) throw new Error("_id for user has not yet been created");
+  const userId: string = this._id.toString();
+  return jwt.sign({ userId }, JWT_EMAIL_VERIFICATION_SECRET, {
+    expiresIn: "1d",
+  });
+};
 
 // check whether a given password matches the hashed db password for the user
 userSchema.methods.authenticate = function (
