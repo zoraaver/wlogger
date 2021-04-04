@@ -1,7 +1,11 @@
 import { Request, Response, NextFunction } from "express";
 import User, { userDocument } from "../models/user";
 import { LoginTicket, OAuth2Client, TokenPayload } from "google-auth-library";
-import { GOOGLE_CLIENT_ID } from "../../keys.json";
+import {
+  GOOGLE_CLIENT_ID,
+  JWT_EMAIL_VERIFICATION_SECRET,
+} from "../../keys.json";
+import jwt from "jsonwebtoken";
 
 export async function login(
   req: Request,
@@ -12,7 +16,7 @@ export async function login(
 
   const user: userDocument | null = await User.findOne(
     { email },
-    "email password token googleId"
+    "email password googleId confirmed"
   );
   // if the user has already signed up via google
   if (user?.googleId) {
@@ -21,6 +25,13 @@ export async function login(
   }
   if (!user || !(await user.authenticate(password))) {
     res.status(401).json({ message: "Invalid email or password" });
+    return;
+  }
+
+  if (!user.confirmed) {
+    res
+      .status(401)
+      .json({ message: "Please confirm your email address to login" });
     return;
   }
   res.json({ user: { email: user.email, token: user.token } });
@@ -63,16 +74,13 @@ export async function googleLogin(
     // verify token and find user from google
     const { googleId, email } = await verifyGoogleIdToken(idToken);
     // first try to find user in db by their google id
-    let user: userDocument | null = await User.findOne(
-      { googleId },
-      "email token"
-    );
+    let user: userDocument | null = await User.findOne({ googleId }, "email");
     if (user) {
       res.json({ user: { email: user.email, token: user.token } });
       return;
     }
     // then look for a matching email (i.e. user has signed up previously via email and password)
-    user = await User.findOne({ email }, "email token password");
+    user = await User.findOne({ email }, "email password");
     if (user) {
       user.googleId = googleId;
       await user.save();
@@ -102,4 +110,30 @@ async function verifyGoogleIdToken(
   }
   // the email is included in the scope so it will be in the returned payload
   return { email: payload.email as string, googleId: payload.sub };
+}
+
+export async function verify(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  const { verificationToken } = req.body;
+  try {
+    const { userId } = jwt.verify(
+      verificationToken,
+      JWT_EMAIL_VERIFICATION_SECRET
+    ) as any;
+
+    const user: userDocument | null = await User.findById(userId);
+    if (!user) {
+      res.status(404).json({ message: `Cannot find user with id ${userId}` });
+      return;
+    }
+    user.confirmed = true;
+    await user.save();
+    res.json({ user: { email: user.email, token: user.token } });
+  } catch (error) {
+    res.status(406).json({ message: "Invalid verification token" });
+    return;
+  }
 }
