@@ -31,9 +31,7 @@ export async function create(
     user = new User({ email, password });
     await user.save();
     sendVerificationEmail(email, user.getVerificationToken());
-    res
-      .status(201)
-      .json({ user: { email: user.email, workoutPlans: user.workoutPlans } });
+    res.status(201).json({ user: { email: user.email } });
   } catch (error) {
     const errorMessage: string = error.message.split(": ")[2];
     const field: string = error.message.split(": ")[1];

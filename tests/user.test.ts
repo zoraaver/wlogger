@@ -61,7 +61,6 @@ describe("POST /users", () => {
       expect(response.body).toHaveProperty("user");
       expect(response.body.user).toStrictEqual({
         email: validUserData.email,
-        workoutPlans: [],
       });
     });
 
