@@ -20,7 +20,7 @@ export async function login(
   );
   // if the user has already signed up via google
   if (user?.googleId) {
-    res.status(403).json({ message: "Please sign in with google" });
+    res.status(403).json({ message: "Please sign in with Google" });
     return;
   }
   if (!user || !(await user.authenticate(password))) {
@@ -31,7 +31,7 @@ export async function login(
   if (!user.confirmed) {
     res
       .status(401)
-      .json({ message: "Please confirm your email address to login" });
+      .json({ message: "Please verify your email address to login" });
     return;
   }
   res.json({ user: { email: user.email, token: user.token } });
@@ -83,6 +83,7 @@ export async function googleLogin(
     user = await User.findOne({ email }, "email password");
     if (user) {
       user.googleId = googleId;
+      user.confirmed = true;
       await user.save();
       res.json({ user: { email: user.email, token: user.token } });
       return;

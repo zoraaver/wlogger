@@ -75,7 +75,7 @@ describe("POST /auth/login", () => {
         password: "password",
       });
       expect(response.status).toBe(403);
-      expect(response.body.message).toBe("Please sign in with google");
+      expect(response.body.message).toBe("Please sign in with Google");
       await googleUser.delete();
     });
 
@@ -91,7 +91,7 @@ describe("POST /auth/login", () => {
       });
       expect(response.status).toBe(401);
       expect(response.body.message).toBe(
-        "Please confirm your email address to login"
+        "Please verify your email address to login"
       );
       await unconfirmedUser.delete();
     });
@@ -260,6 +260,9 @@ describe("GET /auth/validate", () => {
 });
 
 describe("POST /auth/verify", () => {
+  afterEach(async () => {
+    await User.deleteMany({});
+  });
   function postVerify(verificationToken?: string): Test {
     return request(app)
       .post("/auth/verify")
