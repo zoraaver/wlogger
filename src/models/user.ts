@@ -25,6 +25,7 @@ const userSchema = new Schema<userDocument>({
   email: {
     type: String,
     required: [true, "Email is a required field"],
+    unique: true,
     validate: {
       validator: (email: string) => validator.isEmail(email),
       message: "Email is invalid",
@@ -51,7 +52,7 @@ const userSchema = new Schema<userDocument>({
 async function hashDbPassword(this: userDocument): Promise<void> {
   if (this.googleId) return;
   if (!this.password)
-    throw new Error("Validation error: password: Password is required");
+    throw new Error("User validation failed: password: Password is required");
   if (this.isModified("password"))
     this.password = await bcrypt.hash(this.password, 12);
 }
