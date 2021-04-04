@@ -16,36 +16,34 @@ export async function create(
 ): Promise<void> {
   const { email, password, confirmPassword } = req.body;
 
-  if (password !== confirmPassword) {
-    res
-      .status(406)
-      .json({ message: "Password and confirm password do not match" });
-    return;
-  }
-
-  let user: userDocument | null = await User.findOne({ email });
-  if (user) {
-    res.status(406).json({ message: "Email has already been taken" });
-    return;
-  }
-
-  user = new User({ email, password });
-
   try {
+    let user: userDocument | null = await User.findOne({ email });
+    if (user) {
+      throw new Error(
+        "Email validation error: email: Email has already been taken"
+      );
+    }
+    if (password != confirmPassword)
+      throw new Error(
+        "User validation error: confirmPassword: Confirm password does not match password"
+      );
+
+    user = new User({ email, password });
     await user.save();
     sendVerificationEmail(email, user.getVerificationToken());
+    res
+      .status(201)
+      .json({ user: { email: user.email, workoutPlans: user.workoutPlans } });
   } catch (error) {
     const errorMessage: string = error.message.split(": ")[2];
-    res.status(406).json({ message: errorMessage });
+    const field: string = error.message.split(": ")[1];
+    res.status(406).json({ field, error: errorMessage });
     return;
   }
-  res
-    .status(201)
-    .json({ user: { email: user.email, workoutPlans: user.workoutPlans } });
 }
 
 async function sendVerificationEmail(email: string, token: string) {
-  const verifyLink: string = `${CLIENT_URL}/confirm/${token}`;
+  const verifyLink: string = `${CLIENT_URL}/verify/${token}`;
   try {
     await sgMail.send({
       from: { email: "app@wlogger.uk", name: "wLogger" },

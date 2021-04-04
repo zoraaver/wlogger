@@ -92,7 +92,8 @@ describe("POST /users", () => {
         confirmPassword: "password",
       });
       expect(response.status).toBe(406);
-      expect(response.body.message).toBe("Email is invalid");
+      expect(response.body.field).toBe("email");
+      expect(response.body.error).toBe("Email is invalid");
     });
 
     it("should respond with a 406 if the password is absent", async () => {
@@ -102,7 +103,8 @@ describe("POST /users", () => {
         confirmPassword: "",
       });
       expect(response.status).toBe(406);
-      expect(response.body.message).toBe("Password is required");
+      expect(response.body.field).toBe("password");
+      expect(response.body.error).toBe("Password is required");
     });
 
     it("should respond with a 406 if the password and password confirmation do not match", async () => {
@@ -112,8 +114,9 @@ describe("POST /users", () => {
         confirmPassword: "pasword",
       });
       expect(response.status).toBe(406);
-      expect(response.body.message).toBe(
-        "Password and confirm password do not match"
+      expect(response.body.field).toBe("confirmPassword");
+      expect(response.body.error).toBe(
+        "Confirm password does not match password"
       );
     });
 
@@ -130,7 +133,8 @@ describe("POST /users", () => {
       });
 
       expect(response.status).toBe(406);
-      expect(response.body.message).toBe("Email has already been taken");
+      expect(response.body.field).toBe("email");
+      expect(response.body.error).toBe("Email has already been taken");
     });
   });
 });
