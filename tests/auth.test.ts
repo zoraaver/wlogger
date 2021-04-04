@@ -4,9 +4,13 @@ import request, { Response, Test } from "supertest";
 import { MONGO_TEST_URI } from "../src/util/database";
 import mongoose from "mongoose";
 import User, { userDocument } from "../src/models/user";
-import { JWT_SECRET, GOOGLE_CLIENT_ID } from "../keys.json";
+import {
+  JWT_SECRET,
+  GOOGLE_CLIENT_ID,
+  JWT_EMAIL_VERIFICATION_SECRET,
+} from "../keys.json";
 
-type loginData = { email: string; password: string };
+type loginData = { email: string; password?: string };
 
 const validLoginData: loginData = {
   email: "test@test.com",
@@ -18,7 +22,7 @@ beforeAll(async () => {
     useNewUrlParser: true,
     useUnifiedTopology: true,
   });
-  const user = new User(validLoginData);
+  const user = new User({ ...validLoginData, confirmed: true });
   await user.save();
 });
 
@@ -62,7 +66,7 @@ describe("POST /auth/login", () => {
 
     it("should respond with a 403 if the user has a google id", async () => {
       const email = "another@test.com";
-      const user: userDocument | null = await User.create({
+      const googleUser: userDocument = await User.create({
         email,
         googleId: "fake google id",
       });
@@ -72,7 +76,24 @@ describe("POST /auth/login", () => {
       });
       expect(response.status).toBe(403);
       expect(response.body.message).toBe("Please sign in with google");
-      await user.delete();
+      await googleUser.delete();
+    });
+
+    it("should respond with a 401 if the user is not confirmed", async () => {
+      const unconfirmedEmail = "unconfirmed@test.com";
+      const unconfirmedUser = await User.create({
+        email: unconfirmedEmail,
+        password: "password",
+      });
+      const response: Response = await postLogin({
+        email: unconfirmedEmail,
+        password: "password",
+      });
+      expect(response.status).toBe(401);
+      expect(response.body.message).toBe(
+        "Please confirm your email address to login"
+      );
+      await unconfirmedUser.delete();
     });
   });
 
@@ -198,7 +219,7 @@ describe("POST /auth/google", () => {
   });
 });
 
-describe("POST /validate", () => {
+describe("GET /auth/validate", () => {
   function getValidate(id?: string): Test {
     const token = id ? jwt.sign(id, JWT_SECRET) : undefined;
     if (token) {
@@ -235,5 +256,60 @@ describe("POST /validate", () => {
     expect(response.body.message).toBe(
       "This page requires you to be logged in."
     );
+  });
+});
+
+describe("POST /auth/verify", () => {
+  function postVerify(verificationToken?: string): Test {
+    return request(app)
+      .post("/auth/verify")
+      .send({ verificationToken })
+      .set("Accept", "application/json");
+  }
+  it("should respond with a 406 if the verification token is invalid", async () => {
+    const response: Response = await postVerify("invalid verification token");
+    expect(response.status).toBe(406);
+    expect(response.body.message).toBe("Invalid verification token");
+  });
+
+  it("should respond with a 406 if no verification token is sent", async () => {
+    const response: Response = await postVerify();
+    expect(response.status).toBe(406);
+    expect(response.body.message).toBe("Invalid verification token");
+  });
+
+  it("should respond with user data and a JWT if the verification token is valid", async () => {
+    const user: userDocument = await User.create({
+      email,
+      password: "password",
+    });
+    const verificationToken = jwt.sign(
+      { userId: user._id },
+      JWT_EMAIL_VERIFICATION_SECRET,
+      { expiresIn: "1m" }
+    );
+    const response: Response = await postVerify(verificationToken);
+    expect(response.status).toBe(200);
+    expect(response.body).toHaveProperty("user");
+    expect(response.body.user).toHaveProperty("token");
+    expect(response.body.user.email).toBe(user.email);
+    const token: string = response.body.user.token;
+    expect(jwt.verify(token, JWT_SECRET)).toBe(user._id.toString());
+    await user.delete();
+  });
+
+  it("should update the user as confirmed if the verification token is valid", async () => {
+    let user: userDocument | null = await User.create({
+      email,
+      password: "password",
+    });
+    const verificationToken = jwt.sign(
+      { userId: user._id },
+      JWT_EMAIL_VERIFICATION_SECRET,
+      { expiresIn: "1m" }
+    );
+    await postVerify(verificationToken);
+    user = await User.findById(user._id);
+    expect(user!.confirmed).toBe(true);
   });
 });
