@@ -52,7 +52,8 @@ async function hashDbPassword(this: userDocument): Promise<void> {
   if (this.googleId) return;
   if (!this.password)
     throw new Error("Validation error: password: Password is required");
-  this.password = await bcrypt.hash(this.password, 12);
+  if (this.isModified("password"))
+    this.password = await bcrypt.hash(this.password, 12);
 }
 
 // store hashed passwords in db
