@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import User, { userDocument } from "../models/user";
+import { userDocument, User } from "../models/user";
 import { LoginTicket, OAuth2Client, TokenPayload } from "google-auth-library";
 import {
   GOOGLE_CLIENT_ID,

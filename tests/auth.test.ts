@@ -3,7 +3,7 @@ import jwt from "jsonwebtoken";
 import request, { Response, Test } from "supertest";
 import { MONGO_TEST_URI } from "../src/util/database";
 import mongoose from "mongoose";
-import User, { userDocument } from "../src/models/user";
+import { userDocument, User } from "../src/models/user";
 import {
   JWT_SECRET,
   GOOGLE_CLIENT_ID,

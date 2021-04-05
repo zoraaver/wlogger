@@ -84,4 +84,4 @@ userSchema.methods.authenticate = function (
   return bcrypt.compare(password, this.password);
 };
 
-export default model<userDocument>("User", userSchema);
+export const User = model<userDocument>("User", userSchema);

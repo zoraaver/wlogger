@@ -5,7 +5,7 @@ import {
   CLIENT_URL,
   VERIFICATION_EMAIL_TEMPLATE_ID,
 } from "../../keys.json";
-import User, { userDocument } from "../models/user";
+import { userDocument, User } from "../models/user";
 
 sgMail.setApiKey(SENDGRID_KEY);
 
