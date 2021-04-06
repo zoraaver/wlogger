@@ -11,7 +11,6 @@ type Day =
   | "Sunday";
 
 export interface workoutDocument extends Document {
-  repeat: boolean;
   dayOfWeek?: Day;
   exercises: Array<{
     _id: exerciseDocument["_id"];
