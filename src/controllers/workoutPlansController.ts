@@ -7,14 +7,16 @@ export async function create(
   res: Response,
   next: NextFunction
 ): Promise<void> {
-  const { name, length } = req.body;
+  const { name, length, current } = req.body;
   try {
     const workoutPlan: workoutPlanDocument = await WorkoutPlan.create({
       name,
       length,
+      current,
     });
     const user: userDocument | null = await User.findById(req.currentUserId);
     user?.workoutPlans.push(workoutPlan._id.toString());
+    if (current && user) user.currentWorkoutPlan = workoutPlan._id;
     await user?.save();
     res.status(201).json({ workoutPlan });
   } catch (error) {

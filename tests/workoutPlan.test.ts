@@ -31,6 +31,7 @@ afterAll(async () => {
 interface workoutPlanData {
   name: string;
   length?: number;
+  current?: boolean;
 }
 
 describe("POST /workoutPlans", () => {
@@ -84,6 +85,22 @@ describe("POST /workoutPlans", () => {
         email: userData.email,
       });
       expect(user!.workoutPlans.slice(-1)[0]._id.toString()).toBe(
+        workoutPlanId.toString()
+      );
+    });
+
+    it("should set the current workout plan of the user if current is given", async () => {
+      await postWorkoutPlans({ ...validWorkoutPlanData, current: true });
+      const workoutPlan: workoutPlanDocument | null = await WorkoutPlan.findOne(
+        {
+          name: validWorkoutPlanData.name,
+        }
+      );
+      const workoutPlanId = workoutPlan?._id;
+      const user: userDocument | null = await User.findOne({
+        email: userData.email,
+      });
+      expect(user!.currentWorkoutPlan._id.toString()).toBe(
         workoutPlanId.toString()
       );
     });

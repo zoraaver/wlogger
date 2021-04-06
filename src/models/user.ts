@@ -19,6 +19,7 @@ export interface userDocument extends Document {
   authenticate: (password: string) => Promise<boolean>;
   getVerificationToken: () => string;
   token?: string;
+  currentWorkoutPlan?: workoutPlanDocument["_id"];
 }
 
 const userSchema = new Schema<userDocument>({
@@ -37,6 +38,7 @@ const userSchema = new Schema<userDocument>({
   height: Number,
   confirmed: { type: Boolean, default: false },
   googleId: String,
+  currentWorkoutPlan: { type: Schema.Types.ObjectId, ref: "workoutPlan" },
   workoutPlans: [
     {
       workoutPlan: { type: Schema.Types.ObjectId, ref: "workoutPlan" },
