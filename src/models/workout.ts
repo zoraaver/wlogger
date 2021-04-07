@@ -1,5 +1,4 @@
 import { Document, Schema } from "mongoose";
-import { exerciseDocument } from "./exercise";
 
 type Day =
   | "Monday"
@@ -10,28 +9,43 @@ type Day =
   | "Saturday"
   | "Sunday";
 
+type weightUnit = "kg" | "lb";
+
+const days: Day[] = [
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+  "Sunday",
+];
+
 export interface workoutDocument extends Document {
-  dayOfWeek?: Day;
+  dayOfWeek: Day;
+  repeat: number;
   exercises: Array<{
-    _id: exerciseDocument["_id"];
+    name: string;
     restInterval: number;
     sets: number;
     repetitions: number;
     weight: number;
+    unit: weightUnit;
     autoIncrement: boolean;
   }>;
 }
 
 export const workoutSchema = new Schema<workoutDocument>({
-  repeat: { type: Boolean, required: true },
-  dayOfWeek: String,
+  repeat: { type: Number, default: 0 },
+  dayOfWeek: { type: String, enum: days },
   exercises: [
     {
-      exerciseId: { type: Schema.Types.ObjectId, ref: "exercise" },
+      name: String,
       restInterval: Number,
       sets: Number,
       repetitions: Number,
       weight: Number,
+      unit: { type: String, enum: ["kg", "lb"] },
       autoIncrement: Boolean,
     },
   ],

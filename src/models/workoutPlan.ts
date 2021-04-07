@@ -14,7 +14,7 @@ export interface workoutPlanDocument extends Document {
 
 const workoutPlanSchema = new Schema<workoutPlanDocument>({
   name: { type: String, required: [true, "Name is a required field"] },
-  length: Number,
+  length: { type: Number, default: 0 },
   weeks: [{ position: Number, workouts: [workoutSchema], repeat: Number }],
 });
 
