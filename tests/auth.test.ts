@@ -22,6 +22,7 @@ beforeAll(async () => {
     useNewUrlParser: true,
     useUnifiedTopology: true,
     useCreateIndex: true,
+    useFindAndModify: true,
   });
   const user = new User({ ...validLoginData, confirmed: true });
   await user.save();

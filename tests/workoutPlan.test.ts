@@ -15,6 +15,7 @@ beforeAll(async () => {
     useNewUrlParser: true,
     useUnifiedTopology: true,
     useCreateIndex: true,
+    useFindAndModify: true,
   });
   user = await User.create({
     ...userData,
