@@ -38,17 +38,9 @@ const userSchema = new Schema<userDocument>({
   height: Number,
   confirmed: { type: Boolean, default: false },
   googleId: String,
-  currentWorkoutPlan: { type: Schema.Types.ObjectId, ref: "workoutPlan" },
-  workoutPlans: [
-    {
-      workoutPlan: { type: Schema.Types.ObjectId, ref: "workoutPlan" },
-    },
-  ],
-  workoutSessions: [
-    {
-      workoutSession: { type: Schema.Types.ObjectId, ref: "workoutSession" },
-    },
-  ],
+  currentWorkoutPlan: { type: Schema.Types.ObjectId, ref: "WorkoutPlan" },
+  workoutPlans: [{ type: Schema.Types.ObjectId, ref: "WorkoutPlan" }],
+  workoutSessions: [{ type: Schema.Types.ObjectId, ref: "WorkoutSession" }],
 });
 
 async function hashDbPassword(this: userDocument): Promise<void> {
