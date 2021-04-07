@@ -21,6 +21,7 @@ beforeAll(async () => {
   await mongoose.connect(MONGO_TEST_URI, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
+    useCreateIndex: true,
   });
   const user = new User({ ...validLoginData, confirmed: true });
   await user.save();

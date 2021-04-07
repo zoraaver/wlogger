@@ -3,7 +3,11 @@ import { MONGO_URI } from "./util/database";
 import mongoose from "mongoose";
 
 mongoose
-  .connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+  .connect(MONGO_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+    useCreateIndex: true,
+  })
   .then(() => {
     console.log("Connected to database successfully");
     app.listen(process.env.PORT || 8080);
