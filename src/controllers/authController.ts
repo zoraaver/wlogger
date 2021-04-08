@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from "express";
+import { Request, Response } from "express";
 import { userDocument, User } from "../models/user";
 import { LoginTicket, OAuth2Client, TokenPayload } from "google-auth-library";
 import {
@@ -7,11 +7,7 @@ import {
 } from "../../keys.json";
 import jwt from "jsonwebtoken";
 
-export async function login(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
+export async function login(req: Request, res: Response): Promise<void> {
   const { email, password } = req.body;
 
   const user: userDocument | null = await User.findOne(
@@ -37,11 +33,7 @@ export async function login(
   res.json({ user: { email: user.email, token: user.token } });
 }
 
-export async function validate(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
+export async function validate(req: Request, res: Response): Promise<void> {
   if (req.currentUserId) {
     let user;
     try {
@@ -64,11 +56,7 @@ export async function validate(
   }
 }
 
-export async function googleLogin(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
+export async function googleLogin(req: Request, res: Response): Promise<void> {
   const { idToken } = req.body;
   try {
     // verify token and find user from google
@@ -113,11 +101,7 @@ async function verifyGoogleIdToken(
   return { email: payload.email as string, googleId: payload.sub };
 }
 
-export async function verify(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
+export async function verify(req: Request, res: Response): Promise<void> {
   const { verificationToken } = req.body;
   try {
     const { userId } = jwt.verify(

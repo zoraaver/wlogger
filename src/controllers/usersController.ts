@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from "express";
+import { Request, Response } from "express";
 import sgMail from "@sendgrid/mail";
 import {
   SENDGRID_KEY,
@@ -9,11 +9,7 @@ import { userDocument, User } from "../models/user";
 
 sgMail.setApiKey(SENDGRID_KEY);
 
-export async function create(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
+export async function create(req: Request, res: Response): Promise<void> {
   const { email, password, confirmPassword } = req.body;
 
   try {
@@ -40,7 +36,10 @@ export async function create(
   }
 }
 
-async function sendVerificationEmail(email: string, token: string) {
+async function sendVerificationEmail(
+  email: string,
+  token: string
+): Promise<void> {
   const verifyLink: string = `${CLIENT_URL}/verify/${token}`;
   try {
     await sgMail.send({
