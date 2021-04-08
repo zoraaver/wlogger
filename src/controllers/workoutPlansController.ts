@@ -1,15 +1,26 @@
-import { Request, Response, NextFunction } from "express";
+import { Request, Response } from "express";
 import { LeanDocument } from "mongoose";
 import { User, userDocument } from "../models/user";
 import { workoutPlanDocument, WorkoutPlan } from "../models/workoutPlan";
 
+interface ResponseError {
+  field: string;
+  error: string;
+}
+
+interface ResponseMessage {
+  message: string;
+}
+
 export async function create(
   req: Request,
-  res: Response,
-  next: NextFunction
+  res: Response<workoutPlanDocument | ResponseError>
 ): Promise<void> {
   const { name, length, current, weeks } = req.body;
   try {
+    if (weeks !== undefined) {
+      findDuplicatePositionsInWeeks(weeks);
+    }
     const workoutPlan: workoutPlanDocument = await WorkoutPlan.create({
       name,
       length,
@@ -28,8 +39,7 @@ export async function create(
 
 export async function index(
   req: Request,
-  res: Response,
-  next: NextFunction
+  res: Response<workoutPlanDocument[] | ResponseMessage>
 ): Promise<void> {
   const user: LeanDocument<userDocument> | null = await User.findById(
     req.currentUserId,
@@ -47,46 +57,72 @@ export async function index(
 
 export async function show(
   req: Request,
-  res: Response,
-  next: NextFunction
+  res: Response<workoutPlanDocument | ResponseMessage>
 ): Promise<void> {
   const { id } = req.params;
-  const workoutPlan: workoutPlanDocument | null = await WorkoutPlan.findById(
-    id
-  ).lean();
-  if (!workoutPlan) {
+  const user = await User.findById(req.currentUserId, "workoutPlans").populate({
+    path: "workoutPlans",
+    match: { _id: { $eq: id } },
+  });
+  if (!user || user.workoutPlans.length === 0) {
     res.status(404).json({ message: `Cannot find workout plan with id ${id}` });
     return;
   }
-  res.json(workoutPlan);
+  res.json(user.workoutPlans[0]);
 }
 
 export async function update(
   req: Request,
-  res: Response,
-  next: NextFunction
+  res: Response<workoutPlanDocument | ResponseMessage>
 ): Promise<void> {
   const { id } = req.params;
-  const workoutPlan: workoutPlanDocument | null = await WorkoutPlan.findByIdAndUpdate(
-    id,
+  const user = await User.findById(req.currentUserId, "workoutPlans").populate({
+    path: "workoutPlans",
+    match: { _id: { $eq: id } },
+    select: "_id",
+  });
+
+  if (!user || user.workoutPlans.length === 0) {
+    res.status(404).json({ message: `Cannot find workout plan with id ${id}` });
+    return;
+  }
+  const workoutPlan: workoutPlanDocument | null = await WorkoutPlan.findOneAndUpdate(
+    { _id: user.workoutPlans[0].id },
     req.body,
     { new: true }
   );
-  if (!workoutPlan) {
-    res.status(404).json({ message: `Cannot find workout plan with id ${id}` });
-    return;
-  }
-  res.json(workoutPlan);
+  if (workoutPlan) res.json(workoutPlan);
 }
 
-export async function destroy(req: Request, res: Response, next: NextFunction) {
+export async function destroy(
+  req: Request,
+  res: Response<string | ResponseMessage>
+) {
   const { id } = req.params;
-  const workoutPlan: workoutPlanDocument | null = await WorkoutPlan.findByIdAndDelete(
-    id
-  ).lean();
-  if (!workoutPlan) {
+  const user = await User.findById(req.currentUserId, "workoutPlans").populate({
+    path: "workoutPlans",
+    match: { _id: { $eq: id } },
+  });
+
+  if (!user || user.workoutPlans.length === 0) {
     res.status(404).json({ message: `Cannot find workout plan with id ${id}` });
     return;
   }
-  res.json(workoutPlan._id);
+  const workoutPlan: workoutPlanDocument = user.workoutPlans[0];
+  workoutPlan.delete();
+  res.json(workoutPlan.id);
+}
+
+// utility function which throws an error if the input weeks array contains duplicate position fields
+function findDuplicatePositionsInWeeks(weeks: any[]) {
+  let positionCount: { [element: number]: number } = {};
+  for (const week of weeks) {
+    if (week.position !== undefined) {
+      if (positionCount[week.position] === 1)
+        throw new Error(
+          "Validation error: weeks.position: Position must be unique for each week"
+        );
+      positionCount[week.position] = 1;
+    }
+  }
 }
