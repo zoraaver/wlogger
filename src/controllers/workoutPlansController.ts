@@ -99,18 +99,28 @@ export async function destroy(
   res: Response<string | ResponseMessage>
 ) {
   const { id } = req.params;
-  const user = await User.findById(req.currentUserId, "workoutPlans").populate({
-    path: "workoutPlans",
-    match: { _id: { $eq: id } },
-  });
+  const user = await User.findById(req.currentUserId).populate(
+    "workoutPlans",
+    "_id"
+  );
 
-  if (!user || user.workoutPlans.length === 0) {
+  const workoutPlanIndex: number | undefined = user?.workoutPlans.findIndex(
+    (workoutPlan: workoutPlanDocument) => workoutPlan.id === id
+  );
+
+  if (!user || workoutPlanIndex === undefined || workoutPlanIndex < 0) {
     res.status(404).json({ message: `Cannot find workout plan with id ${id}` });
     return;
   }
-  const workoutPlan: workoutPlanDocument = user.workoutPlans[0];
-  workoutPlan.delete();
-  res.json(workoutPlan.id);
+
+  // remove workout plan from user doc
+  user.workoutPlans.splice(workoutPlanIndex, 1);
+  if (user.currentWorkoutPlan && user.currentWorkoutPlan.toString() === id) {
+    user.currentWorkoutPlan = undefined;
+  }
+  await user.save();
+  await WorkoutPlan.findByIdAndDelete(id);
+  res.json(id);
 }
 
 // utility function which throws an error if the input weeks array contains duplicate position fields

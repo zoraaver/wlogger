@@ -9,7 +9,7 @@ import { WorkoutPlan, workoutPlanDocument } from "../src/models/workoutPlan";
 import { Day, weightUnit } from "../src/models/workout";
 
 let token: string;
-let user: userDocument;
+let user: userDocument | null;
 const userData = { email: "test@test.com", password: "password" };
 
 beforeAll(async () => {
@@ -23,7 +23,7 @@ beforeAll(async () => {
     ...userData,
     confirmed: true,
   });
-  token = jwt.sign(user._id.toString(), JWT_SECRET);
+  token = jwt.sign(user?._id.toString(), JWT_SECRET);
 });
 
 afterEach(async () => {
@@ -375,6 +375,23 @@ describe("DELETE /workoutPlans/:id", () => {
       {}
     );
     expect(workoutPlanCount).toBe(0);
+  });
+
+  it("should remove the workout plan id from the user's workout plans in the database", async () => {
+    user = user as userDocument;
+    // remove all previous workout plans
+    user.workoutPlans = (undefined as unknown) as any[];
+    await user.save();
+
+    await postWorkoutPlan({ ...validWorkoutPlanData, current: true });
+    await postWorkoutPlan({ ...validWorkoutPlanData, name: "another plan" });
+    const workoutPlan: workoutPlanDocument | null = await WorkoutPlan.findOne({
+      name: validWorkoutPlanData.name,
+    });
+    await deleteWorkoutPlan(workoutPlan!.id);
+    user = (await User.findById(user.id)) as userDocument;
+    expect(user.workoutPlans).toHaveLength(1);
+    expect(user.currentWorkoutPlan).toBeUndefined();
   });
 
   it("should respond with a 404 if the workout plan does not belong to the authorised user", async () => {
