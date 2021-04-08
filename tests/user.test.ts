@@ -10,7 +10,7 @@ jest.mock("@sendgrid/mail");
 (sgMail.send as any).mockResolvedValue({});
 
 beforeAll(async () => {
-  await mongoose.connect(MONGO_TEST_URI, {
+  await mongoose.connect(MONGO_TEST_URI + "_user", {
     useNewUrlParser: true,
     useUnifiedTopology: true,
     useCreateIndex: true,

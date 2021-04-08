@@ -18,7 +18,7 @@ const validLoginData: loginData = {
 };
 
 beforeAll(async () => {
-  await mongoose.connect(MONGO_TEST_URI, {
+  await mongoose.connect(MONGO_TEST_URI + "_auth", {
     useNewUrlParser: true,
     useUnifiedTopology: true,
     useCreateIndex: true,
