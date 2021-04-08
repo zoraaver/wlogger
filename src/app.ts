@@ -15,7 +15,10 @@ app.use(express.json());
 // security
 app.use(helmet());
 
-if (process.env.NODE_ENV !== "production") {
+if (
+  process.env.NODE_ENV === "development" ||
+  process.env.NODE_ENV === undefined
+) {
   // logging
   app.use(morgan("dev"));
   // disable all cors errors
