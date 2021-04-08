@@ -31,6 +31,24 @@
     ],
     "exec": "node dist/src/server.js"
   },
+  "jest": {
+    "globals": {
+      "ts-jest": {
+        "tsconfig": "tsconfig.json"
+      }
+    },
+    "moduleFileExtensions": [
+      "ts",
+      "js"
+    ],
+    "transform": {
+      "^.+\\.(ts|tsx)$": "ts-jest"
+    },
+    "testMatch": [
+      "**/tests/**/*.test.(ts|js)"
+    ],
+    "testEnvironment": "node"
+  },
   "homepage": "https://github.com/zoraaver/wlogger#readme",
   "devDependencies": {
     "@types/bcryptjs": "^2.4.2",
