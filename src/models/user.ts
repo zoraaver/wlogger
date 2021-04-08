@@ -14,7 +14,7 @@ export interface userDocument extends Document {
   weight?: number;
   height?: number;
   googleId?: string;
-  workoutPlans: Array<workoutPlanDocument["_id"]>;
+  workoutPlans: Array<workoutPlanDocument["_id"] | workoutPlanDocument>;
   workoutSessions: Array<workoutSessionDocument["_id"]>;
   authenticate: (password: string) => Promise<boolean>;
   getVerificationToken: () => string;

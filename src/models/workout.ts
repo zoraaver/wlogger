@@ -39,6 +39,7 @@ export interface workoutDocument extends Document {
 export const workoutSchema = new Schema<workoutDocument>({
   dayOfWeek: {
     type: String,
+    required: [true, "Day of the week is required"],
     enum: { values: days, message: "Invalid day of week" },
   },
   exercises: [

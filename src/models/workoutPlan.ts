@@ -22,7 +22,11 @@ const workoutPlanSchema = new Schema<workoutPlanDocument>({
   },
   weeks: [
     {
-      position: { type: Number, min: 0 },
+      position: {
+        type: Number,
+        required: [true, "Position is a required field"],
+        min: 0,
+      },
       workouts: [workoutSchema],
       repeat: { type: Number, default: 0 },
     },
