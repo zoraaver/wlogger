@@ -1,6 +1,6 @@
 import { Document, Schema } from "mongoose";
 
-type Day =
+export type Day =
   | "Monday"
   | "Tuesday"
   | "Wednesday"
@@ -9,9 +9,9 @@ type Day =
   | "Saturday"
   | "Sunday";
 
-type weightUnit = "kg" | "lb";
+export type weightUnit = "kg" | "lb";
 
-const days: Day[] = [
+export const days: Day[] = [
   "Monday",
   "Tuesday",
   "Wednesday",
@@ -21,9 +21,10 @@ const days: Day[] = [
   "Sunday",
 ];
 
+const weightUnits: weightUnit[] = ["kg", "lb"];
+
 export interface workoutDocument extends Document {
   dayOfWeek: Day;
-  repeat: number;
   exercises: Array<{
     name: string;
     restInterval: number;
@@ -36,16 +37,34 @@ export interface workoutDocument extends Document {
 }
 
 export const workoutSchema = new Schema<workoutDocument>({
-  repeat: { type: Number, default: 0 },
-  dayOfWeek: { type: String, enum: days },
+  dayOfWeek: {
+    type: String,
+    enum: { values: days, message: "Invalid day of week" },
+  },
   exercises: [
     {
-      name: String,
+      name: { type: String, required: [true, "Exercise name is required"] },
       restInterval: Number,
-      sets: Number,
-      repetitions: Number,
-      weight: Number,
-      unit: { type: String, enum: ["kg", "lb"] },
+      sets: {
+        type: Number,
+        required: true,
+        min: [1, "Sets must be a positive integer"],
+      },
+      repetitions: {
+        type: Number,
+        min: [1, "Repetitions must be a non-negative integer"],
+      },
+      weight: {
+        type: Number,
+        min: [0, "Weight must be a non-negative number"],
+      },
+      unit: {
+        type: String,
+        enum: {
+          values: weightUnits,
+          message: "Unit must be one of 'kg' or 'lb'",
+        },
+      },
       autoIncrement: Boolean,
     },
   ],
