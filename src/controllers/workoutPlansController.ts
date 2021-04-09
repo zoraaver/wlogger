@@ -73,7 +73,7 @@ export async function show(
 
 export async function update(
   req: Request,
-  res: Response<workoutPlanDocument | ResponseMessage>
+  res: Response<workoutPlanDocument | ResponseMessage | ResponseError>
 ): Promise<void> {
   const { id } = req.params;
   const user = await User.findById(req.currentUserId, "workoutPlans").populate({
@@ -86,12 +86,17 @@ export async function update(
     res.status(404).json({ message: `Cannot find workout plan with id ${id}` });
     return;
   }
-  const workoutPlan: workoutPlanDocument | null = await WorkoutPlan.findOneAndUpdate(
-    { _id: user.workoutPlans[0].id },
-    req.body,
-    { new: true }
-  );
-  if (workoutPlan) res.json(workoutPlan);
+  try {
+    const workoutPlan: workoutPlanDocument | null = await WorkoutPlan.findOneAndUpdate(
+      { _id: user.workoutPlans[0].id },
+      req.body,
+      { new: true, runValidators: true }
+    );
+    if (workoutPlan) res.json(workoutPlan);
+  } catch (error) {
+    const [, field, message]: string[] = error.message.split(": ");
+    res.status(406).json({ field, error: message });
+  }
 }
 
 export async function destroy(
