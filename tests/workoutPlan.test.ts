@@ -58,8 +58,8 @@ interface exerciseData {
   name: string;
   restInterval: number;
   sets: number;
-  repetitions: number;
-  weight: number;
+  repetitions?: number;
+  weight?: number;
   unit: weightUnit;
   autoIncrement?: boolean;
 }
@@ -187,6 +187,27 @@ describe("POST /workoutPlans", () => {
       ).lean();
       expect(workoutPlan).not.toBeNull();
       expect(workoutPlan!.weeks[0].repeat).toBe(0);
+    });
+
+    it("should default the number of repetitions of an exercise to 0 if none is given", async () => {
+      delete workoutPlanData.weeks[0].workouts[0].exercises[0].repetitions;
+      await postWorkoutPlan(workoutPlanData);
+      const workoutPlan: workoutPlanDocument | null = await WorkoutPlan.findOne(
+        { name: workoutPlanData.name }
+      ).lean();
+      expect(workoutPlan).not.toBeNull();
+      expect(workoutPlan!.weeks[0].workouts[0].exercises[0].repetitions).toBe(
+        0
+      );
+    });
+    it("should default the weight of an exercise to 0 if none is given", async () => {
+      delete workoutPlanData.weeks[0].workouts[0].exercises[0].weight;
+      await postWorkoutPlan(workoutPlanData);
+      const workoutPlan: workoutPlanDocument | null = await WorkoutPlan.findOne(
+        { name: workoutPlanData.name }
+      ).lean();
+      expect(workoutPlan).not.toBeNull();
+      expect(workoutPlan!.weeks[0].workouts[0].exercises[0].weight).toBe(0);
     });
   });
 

@@ -53,11 +53,13 @@ export const workoutSchema = new Schema<workoutDocument>({
       },
       repetitions: {
         type: Number,
-        min: [1, "Repetitions must be a non-negative integer"],
+        min: [0, "Repetitions must be a non-negative integer"],
+        default: 0,
       },
       weight: {
         type: Number,
         min: [0, "Weight must be a non-negative number"],
+        default: 0,
       },
       unit: {
         type: String,
