@@ -56,7 +56,7 @@ export async function index(
 }
 
 export async function show(
-  req: Request,
+  req: Request<{ id: string }>,
   res: Response<workoutPlanDocument | ResponseMessage>
 ): Promise<void> {
   const { id } = req.params;
@@ -72,7 +72,7 @@ export async function show(
 }
 
 export async function update(
-  req: Request,
+  req: Request<{ id: string }>,
   res: Response<workoutPlanDocument | ResponseMessage | ResponseError>
 ): Promise<void> {
   const { id } = req.params;
@@ -100,7 +100,7 @@ export async function update(
 }
 
 export async function destroy(
-  req: Request,
+  req: Request<{ id: string }>,
   res: Response<string | ResponseMessage>
 ) {
   const { id } = req.params;
