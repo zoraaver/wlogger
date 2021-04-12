@@ -6,6 +6,7 @@ import { authRoutes } from "./routes/authRoutes";
 import { userRoutes } from "./routes/userRoutes";
 import { workoutPlanRoutes } from "./routes/workoutPlanRoutes";
 import { loggedIn, setCurrentUser } from "./middleware/auth";
+import { workoutLogRoutes } from "./routes/workoutLogRoutes";
 
 export const app: Application = express();
 
@@ -29,3 +30,4 @@ app.use(setCurrentUser);
 app.use("/auth", authRoutes);
 app.use("/users", userRoutes);
 app.use("/workoutPlans", loggedIn, workoutPlanRoutes);
+app.use("/workoutLogs", loggedIn, workoutLogRoutes);
