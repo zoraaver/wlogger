@@ -7,3 +7,12 @@ declare global {
     }
   }
 }
+
+interface ResponseError {
+  field: string;
+  error: string;
+}
+
+interface ResponseMessage {
+  message: string;
+}

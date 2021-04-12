@@ -1,16 +1,8 @@
 import { Request, Response } from "express";
 import { LeanDocument } from "mongoose";
+import { ResponseError, ResponseMessage } from "../../@types";
 import { User, userDocument } from "../models/user";
 import { workoutPlanDocument, WorkoutPlan } from "../models/workoutPlan";
-
-interface ResponseError {
-  field: string;
-  error: string;
-}
-
-interface ResponseMessage {
-  message: string;
-}
 
 export async function create(
   req: Request,
