@@ -4,7 +4,7 @@ import bcrypt from "bcryptjs";
 import validator from "validator";
 import { JWT_SECRET, JWT_EMAIL_VERIFICATION_SECRET } from "../../keys.json";
 import { workoutPlanDocument } from "./workoutPlan";
-import { workoutSessionDocument } from "./workoutSession";
+import { workoutLogDocument } from "./workoutLog";
 
 export interface userDocument extends Document {
   email: string;
@@ -15,7 +15,7 @@ export interface userDocument extends Document {
   height?: number;
   googleId?: string;
   workoutPlans: Array<workoutPlanDocument["_id"] | workoutPlanDocument>;
-  workoutSessions: Array<workoutSessionDocument["_id"]>;
+  workoutLogs: Array<workoutLogDocument["_id"]>;
   authenticate: (password: string) => Promise<boolean>;
   getVerificationToken: () => string;
   token?: string;
@@ -40,7 +40,7 @@ const userSchema = new Schema<userDocument>({
   googleId: String,
   currentWorkoutPlan: { type: Schema.Types.ObjectId, ref: "WorkoutPlan" },
   workoutPlans: [{ type: Schema.Types.ObjectId, ref: "WorkoutPlan" }],
-  workoutSessions: [{ type: Schema.Types.ObjectId, ref: "WorkoutSession" }],
+  workoutLogs: [{ type: Schema.Types.ObjectId, ref: "WorkoutLog" }],
 });
 
 async function hashDbPassword(this: userDocument): Promise<void> {
