@@ -21,7 +21,7 @@ export const days: Day[] = [
   "Sunday",
 ];
 
-const weightUnits: weightUnit[] = ["kg", "lb"];
+export const weightUnits: weightUnit[] = ["kg", "lb"];
 
 export interface workoutDocument extends Document {
   dayOfWeek: Day;
