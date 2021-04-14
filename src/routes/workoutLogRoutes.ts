@@ -7,3 +7,4 @@ export const workoutLogRoutes: Router = Router();
 workoutLogRoutes.post("/", workoutLogsController.create);
 workoutLogRoutes.get("/:id", validateId, workoutLogsController.show);
 workoutLogRoutes.get("/", workoutLogsController.index);
+workoutLogRoutes.delete("/:id", validateId, workoutLogsController.destroy);

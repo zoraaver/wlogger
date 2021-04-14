@@ -85,3 +85,32 @@ export async function show(
   }
   res.json(user.workoutLogs[0]);
 }
+
+export async function destroy(
+  req: Request<{ id: string }>,
+  res: Response<string | ResponseMessage>
+): Promise<void> {
+  const { id } = req.params;
+
+  const user: userDocument | null = await User.findById(
+    req.currentUserId,
+    "workoutLogs googleId password"
+  ).populate("workoutLogs", "_id");
+  const workoutLogToDeleteIndex:
+    | number
+    | undefined = user?.workoutLogs.findIndex(
+    (workoutLog: workoutLogDocument) => workoutLog.id === id
+  );
+  if (
+    !user ||
+    workoutLogToDeleteIndex === undefined ||
+    workoutLogToDeleteIndex < 0
+  ) {
+    res.status(404).json({ message: `Cannot find log with id ${id}` });
+    return;
+  }
+  await WorkoutLog.findByIdAndDelete(user.workoutLogs[workoutLogToDeleteIndex]);
+  user.workoutLogs.splice(workoutLogToDeleteIndex, 1);
+  await user.save();
+  res.json(id);
+}
