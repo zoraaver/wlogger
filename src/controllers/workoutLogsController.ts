@@ -64,3 +64,24 @@ function generateWorkoutLogHeaderData(
     }
   );
 }
+
+export async function show(
+  req: Request<{ id: string }>,
+  res: Response<workoutLogDocument | ResponseMessage>
+): Promise<void> {
+  const { id } = req.params;
+  const user: LeanDocument<userDocument> | null = await User.findById(
+    req.currentUserId,
+    "workoutLogs"
+  )
+    .lean()
+    .populate({
+      path: "workoutLogs",
+      match: { _id: { $eq: id } },
+    });
+  if (!user || user.workoutLogs.length === 0) {
+    res.status(404).json({ message: `Cannot find log with id ${id}` });
+    return;
+  }
+  res.json(user.workoutLogs[0]);
+}
