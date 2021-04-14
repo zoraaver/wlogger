@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { isValidObjectId } from "mongoose";
 
-export function validateWorkoutPlanId(
+export function validateId(
   req: Request<{ id?: string }>,
   res: Response,
   next: NextFunction
