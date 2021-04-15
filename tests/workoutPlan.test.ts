@@ -93,7 +93,7 @@ function postWorkoutPlan(workoutPlanData: workoutPlanData): Test {
 
 describe("POST /workoutPlans", () => {
   let workoutPlanData: workoutPlanData = { ...validWorkoutPlanData };
-  afterEach(async () => {
+  afterEach(() => {
     workoutPlanData = {
       ...validWorkoutPlanData,
       weeks: [
@@ -115,11 +115,7 @@ describe("POST /workoutPlans", () => {
   describe("with valid data", () => {
     it("should insert a workout plan into the database", async () => {
       await postWorkoutPlan(workoutPlanData);
-      const workoutPlan: workoutPlanDocument | null = await WorkoutPlan.findOne(
-        {
-          name: workoutPlanData.name,
-        }
-      );
+      const workoutPlan: workoutPlanDocument | null = await WorkoutPlan.findOne();
       expect(workoutPlan).not.toBeNull();
       expect(workoutPlan!.length).toBe(12);
     });
@@ -135,15 +131,9 @@ describe("POST /workoutPlans", () => {
 
     it("should add the workoutPlan id to the user who made the request", async () => {
       await postWorkoutPlan(workoutPlanData);
-      const workoutPlan: workoutPlanDocument | null = await WorkoutPlan.findOne(
-        {
-          name: workoutPlanData.name,
-        }
-      );
+      const workoutPlan: workoutPlanDocument | null = await WorkoutPlan.findOne();
       const workoutPlanId = workoutPlan?._id;
-      const user: userDocument | null = await User.findOne({
-        email: userData.email,
-      });
+      const user: userDocument | null = await User.findOne();
       expect(user!.workoutPlans.slice(-1)[0]._id.toString()).toBe(
         workoutPlanId.toString()
       );
@@ -151,15 +141,9 @@ describe("POST /workoutPlans", () => {
 
     it("should set the current workout plan of the user if current is given", async () => {
       await postWorkoutPlan({ ...workoutPlanData, current: true });
-      const workoutPlan: workoutPlanDocument | null = await WorkoutPlan.findOne(
-        {
-          name: workoutPlanData.name,
-        }
-      );
+      const workoutPlan: workoutPlanDocument | null = await WorkoutPlan.findOne();
       const workoutPlanId = workoutPlan?._id;
-      const user: userDocument | null = await User.findOne({
-        email: userData.email,
-      });
+      const user: userDocument | null = await User.findOne();
       expect(user!.currentWorkoutPlan._id.toString()).toBe(
         workoutPlanId.toString()
       );
@@ -170,9 +154,7 @@ describe("POST /workoutPlans", () => {
         ...workoutPlanData,
         length: (undefined as unknown) as number,
       });
-      const workoutPlan: workoutPlanDocument | null = await WorkoutPlan.findOne(
-        { name: workoutPlanData.name }
-      ).lean();
+      const workoutPlan: workoutPlanDocument | null = await WorkoutPlan.findOne().lean();
       expect(workoutPlan).not.toBeNull();
       expect(workoutPlan!.length).toBe(0);
     });
@@ -182,9 +164,7 @@ describe("POST /workoutPlans", () => {
         ...workoutPlanData,
         weeks: [{ workouts: [], position: 1 }],
       });
-      const workoutPlan: workoutPlanDocument | null = await WorkoutPlan.findOne(
-        { name: workoutPlanData.name }
-      ).lean();
+      const workoutPlan: workoutPlanDocument | null = await WorkoutPlan.findOne().lean();
       expect(workoutPlan).not.toBeNull();
       expect(workoutPlan!.weeks[0].repeat).toBe(0);
     });
@@ -192,9 +172,7 @@ describe("POST /workoutPlans", () => {
     it("should default the number of repetitions of an exercise to 0 if none is given", async () => {
       delete workoutPlanData.weeks[0].workouts[0].exercises[0].repetitions;
       await postWorkoutPlan(workoutPlanData);
-      const workoutPlan: workoutPlanDocument | null = await WorkoutPlan.findOne(
-        { name: workoutPlanData.name }
-      ).lean();
+      const workoutPlan: workoutPlanDocument | null = await WorkoutPlan.findOne().lean();
       expect(workoutPlan).not.toBeNull();
       expect(workoutPlan!.weeks[0].workouts[0].exercises[0].repetitions).toBe(
         0
@@ -203,9 +181,7 @@ describe("POST /workoutPlans", () => {
     it("should default the weight of an exercise to 0 if none is given", async () => {
       delete workoutPlanData.weeks[0].workouts[0].exercises[0].weight;
       await postWorkoutPlan(workoutPlanData);
-      const workoutPlan: workoutPlanDocument | null = await WorkoutPlan.findOne(
-        { name: workoutPlanData.name }
-      ).lean();
+      const workoutPlan: workoutPlanDocument | null = await WorkoutPlan.findOne().lean();
       expect(workoutPlan).not.toBeNull();
       expect(workoutPlan!.weeks[0].workouts[0].exercises[0].weight).toBe(0);
     });
@@ -355,9 +331,7 @@ describe("GET /workoutPlans/:id", () => {
 
   it("should respond with a 200 and the workout plan matching the id in the request parameter", async () => {
     await postWorkoutPlan(validWorkoutPlanData);
-    const workoutPlan: workoutPlanDocument | null = await WorkoutPlan.findOne({
-      name: validWorkoutPlanData.name,
-    });
+    const workoutPlan: workoutPlanDocument | null = await WorkoutPlan.findOne();
     const response: Response = await getWorkoutPlan(workoutPlan?.id);
     expect(response.status).toBe(200);
     expect(response.body).toHaveProperty("name");
@@ -386,9 +360,7 @@ describe("DELETE /workoutPlans/:id", () => {
   }
   it("should respond with a 200 and remove the workout plan from the database", async () => {
     await postWorkoutPlan(validWorkoutPlanData);
-    const workoutPlan: workoutPlanDocument | null = await WorkoutPlan.findOne({
-      name: validWorkoutPlanData.name,
-    });
+    const workoutPlan: workoutPlanDocument | null = await WorkoutPlan.findOne();
     const response: Response = await deleteWorkoutPlan(workoutPlan!.id);
     expect(response.status).toBe(200);
     expect(response.body).toBe(workoutPlan!.id);
@@ -440,9 +412,7 @@ describe("PATCH /workoutPlans/:id", () => {
   }
   it("should respond with a 200 and update the workout plan in the database", async () => {
     await postWorkoutPlan(validWorkoutPlanData);
-    const workoutPlan = await WorkoutPlan.findOne({
-      name: validWorkoutPlanData.name,
-    });
+    const workoutPlan = await WorkoutPlan.findOne();
     const response: Response = await patchWorkoutPlan(workoutPlan!.id, {
       name: "Changed the name",
       length: 10,
@@ -469,9 +439,7 @@ describe("PATCH /workoutPlans/:id", () => {
     expect(response.body.message).toBe(
       `Cannot find workout plan with id ${workoutPlan!.id}`
     );
-    workoutPlan = await WorkoutPlan.findOne({
-      name: validWorkoutPlanData.name,
-    });
+    workoutPlan = await WorkoutPlan.findOne();
     expect(workoutPlan!.name).toBe(validWorkoutPlanData.name);
     expect(workoutPlan!.length).toBe(validWorkoutPlanData.length);
   });
