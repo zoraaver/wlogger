@@ -2,13 +2,9 @@ import { Request, Response } from "express";
 import { LeanDocument } from "mongoose";
 import { ResponseError, ResponseMessage } from "../../@types";
 import { User, userDocument } from "../models/user";
-import {
-  exerciseData,
-  WorkoutLog,
-  workoutLogDocument,
-} from "../models/workoutLog";
+import { exercise, WorkoutLog, workoutLogDocument } from "../models/workoutLog";
 
-interface workoutLogHeaderData {
+export interface workoutLogHeaderData {
   createdAt: Date;
   setCount: number;
   exerciseCount: number;
@@ -26,7 +22,8 @@ export async function create(
     await user?.save();
     res.status(201).json(workoutLog);
   } catch (error) {
-    res.json(error.message);
+    const [, field, message]: string[] = error.message.split(": ");
+    res.status(406).json({ field, error: message });
   }
 }
 
@@ -47,9 +44,9 @@ export async function index(
   }
 }
 
-function calculateSetNumber(exercises: exerciseData[]): number {
+function calculateSetNumber(exercises: exercise[]): number {
   return exercises.reduce(
-    (total: number, curr: exerciseData) => total + curr.sets.length,
+    (total: number, curr: exercise) => total + curr.sets.length,
     0
   );
 }
@@ -80,7 +77,7 @@ export async function show(
       match: { _id: { $eq: id } },
     });
   if (!user || user.workoutLogs.length === 0) {
-    res.status(404).json({ message: `Cannot find log with id ${id}` });
+    res.status(404).json({ message: `Cannot find workout log with id ${id}` });
     return;
   }
   res.json(user.workoutLogs[0]);
@@ -106,7 +103,7 @@ export async function destroy(
     workoutLogToDeleteIndex === undefined ||
     workoutLogToDeleteIndex < 0
   ) {
-    res.status(404).json({ message: `Cannot find log with id ${id}` });
+    res.status(404).json({ message: `Cannot find workout log with id ${id}` });
     return;
   }
   await WorkoutLog.findByIdAndDelete(user.workoutLogs[workoutLogToDeleteIndex]);
