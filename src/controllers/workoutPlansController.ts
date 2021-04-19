@@ -38,7 +38,7 @@ export async function index(
     "workoutPlans"
   )
     .lean()
-    .populate("workoutPlans", "name length status");
+    .populate("workoutPlans", "name length status start end");
   const workoutPlans = user?.workoutPlans;
   if (workoutPlans) {
     res.json(workoutPlans);
@@ -122,7 +122,7 @@ export async function destroy(
 
 export async function start(
   req: Request<{ id: string }>,
-  res: Response<string | ResponseMessage>
+  res: Response<{ id: string; start: Date } | string | ResponseMessage>
 ) {
   const { id } = req.params;
   const user: userDocument | null = await User.findById(
@@ -151,11 +151,15 @@ export async function start(
   await previousWorkoutPlan.save();
   user.currentWorkoutPlan = user.workoutPlans[0];
   user.currentWorkoutPlan.status = "In progress" as workoutPlanStatus;
+  user.currentWorkoutPlan.start = Date.now();
   await Promise.all([
     user.currentWorkoutPlan.save(),
     user.updateOne({ currentWorkoutPlan: user.currentWorkoutPlan }),
   ]);
-  res.json("Status updated to 'In Progress'");
+  res.json({
+    id: user.currentWorkoutPlan._id.toString(),
+    start: user.currentWorkoutPlan.start,
+  });
 }
 
 // utility function which throws an error if the input weeks array contains duplicate position fields

@@ -17,6 +17,8 @@ export interface Week {
 
 export interface workoutPlanDocument extends Document {
   name: string;
+  start: Date;
+  end: Date;
   length: number;
   status: workoutPlanStatus;
   weeks: Array<Week>;
@@ -40,6 +42,8 @@ const workoutPlanSchema = new Schema<workoutPlanDocument>({
     },
     default: "Not started",
   },
+  start: Date,
+  end: Date,
   weeks: [
     {
       position: {
