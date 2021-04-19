@@ -80,7 +80,7 @@ const validExerciseData: exerciseData = {
 
 const validWorkoutPlanData: workoutPlanData = {
   name: "12 weeks",
-  length: 12,
+  length: 1,
   weeks: [
     {
       position: 1,
@@ -122,7 +122,7 @@ describe("POST /workoutPlans", () => {
       await postWorkoutPlan(workoutPlanData);
       const workoutPlan: workoutPlanDocument | null = await WorkoutPlan.findOne();
       expect(workoutPlan).not.toBeNull();
-      expect(workoutPlan!.length).toBe(12);
+      expect(workoutPlan!.length).toBe(1);
     });
 
     it("should respond with the new workout plan and a 201", async () => {
@@ -466,5 +466,54 @@ describe("PATCH /workoutPlans/:id", () => {
     workoutPlan = await WorkoutPlan.findOne();
     expect(workoutPlan!.name).toBe(validWorkoutPlanData.name);
     expect(workoutPlan!.length).toBe(validWorkoutPlanData.length);
+  });
+});
+
+describe("PATCH /workoutPlans/start/:id", () => {
+  function patchStartWorkoutPlan(id: string): Test {
+    return request(app)
+      .patch(`/workoutPlans/start/${id}`)
+      .set("Authorisation", token);
+  }
+  it("should update the workout plan's status to 'In Progress'", async () => {
+    const response: Response = await postWorkoutPlan(validWorkoutPlanData);
+    const workoutPlanId: string = response.body._id;
+    await patchStartWorkoutPlan(workoutPlanId);
+    const workoutPlan: workoutPlanDocument | null = await WorkoutPlan.findOne();
+    expect(workoutPlan!.status).toBe("In progress");
+  });
+
+  it("should set the plan as the current workout plan", async () => {
+    const response: Response = await postWorkoutPlan(validWorkoutPlanData);
+    const workoutPlanId: string = response.body._id;
+    await patchStartWorkoutPlan(workoutPlanId);
+    const user: userDocument | null = await User.findOne();
+    expect(user!.currentWorkoutPlan._id.toString()).toBe(workoutPlanId);
+  });
+
+  it("should set the previous currentWorkoutPlan's status to 'Not started'", async () => {
+    // create a new plan and assign it as the user's current plan
+    let response: Response = await postWorkoutPlan(validWorkoutPlanData);
+    const workoutPlanId: string = response.body._id;
+    await patchStartWorkoutPlan(workoutPlanId);
+    // create another plan and start it
+    response = await postWorkoutPlan(validWorkoutPlanData);
+    await patchStartWorkoutPlan(response.body._id);
+    const workoutPlan: workoutPlanDocument | null = await WorkoutPlan.findById(
+      workoutPlanId
+    );
+    // expect original plan's status to be set to 'Not Started'
+    expect(workoutPlan!.status).toBe("Not started");
+  });
+
+  it("should not start the plan if the length doesn't match the no. of weeks", async () => {
+    validWorkoutPlanData.length = 2;
+    let response: Response = await postWorkoutPlan(validWorkoutPlanData);
+    const workoutPlanId: string = response.body._id;
+    response = await patchStartWorkoutPlan(workoutPlanId);
+    expect(response.status).toBe(406);
+    expect(response.body).toBe(
+      "The number of weeks does not match the length of the plan."
+    );
   });
 });
