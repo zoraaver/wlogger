@@ -9,15 +9,18 @@ const workoutPlanStatuses: workoutPlanStatus[] = [
   "Not started",
 ];
 
+export interface Week {
+  position: number;
+  workouts: Array<workoutDocument>;
+  repeat: number;
+}
+
 export interface workoutPlanDocument extends Document {
   name: string;
   length: number;
   status: workoutPlanStatus;
-  weeks: Array<{
-    position: number;
-    workouts: Array<workoutDocument>;
-    repeat: number;
-  }>;
+  weeks: Array<Week>;
+  verifyNumberOfWeeksEqualsLength: () => boolean;
 }
 
 const workoutPlanSchema = new Schema<workoutPlanDocument>({
@@ -49,6 +52,15 @@ const workoutPlanSchema = new Schema<workoutPlanDocument>({
     },
   ],
 });
+
+workoutPlanSchema.methods.verifyNumberOfWeeksEqualsLength = function (): boolean {
+  const length: number = this.length;
+  const actualLength: number = this.weeks.reduce(
+    (acc: number, curr: Week) => acc + curr.repeat + 1,
+    0
+  );
+  return length === actualLength;
+};
 
 export const WorkoutPlan = model<workoutPlanDocument>(
   "WorkoutPlan",
