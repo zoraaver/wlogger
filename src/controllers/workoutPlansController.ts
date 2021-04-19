@@ -2,7 +2,11 @@ import { Request, Response } from "express";
 import { LeanDocument } from "mongoose";
 import { ResponseError, ResponseMessage } from "../../@types";
 import { User, userDocument } from "../models/user";
-import { workoutPlanDocument, WorkoutPlan } from "../models/workoutPlan";
+import {
+  workoutPlanDocument,
+  WorkoutPlan,
+  workoutPlanStatus,
+} from "../models/workoutPlan";
 
 export async function create(
   req: Request,
@@ -34,7 +38,7 @@ export async function index(
     "workoutPlans"
   )
     .lean()
-    .populate("workoutPlans", "name length");
+    .populate("workoutPlans", "name length status");
   const workoutPlans = user?.workoutPlans;
   if (workoutPlans) {
     res.json(workoutPlans);
@@ -114,6 +118,44 @@ export async function destroy(
   await user.save();
   await WorkoutPlan.findByIdAndDelete(id);
   res.json(id);
+}
+
+export async function start(
+  req: Request<{ id: string }>,
+  res: Response<string | ResponseMessage>
+) {
+  const { id } = req.params;
+  const user: userDocument | null = await User.findById(
+    req.currentUserId,
+    "workoutPlans password googleId"
+  )
+    .populate({
+      path: "workoutPlans",
+      match: { _id: { $eq: id } },
+      select: "_id weeks.repeat length",
+    })
+    .populate("currentWorkoutPlan", "status");
+
+  if (!user || user.workoutPlans.length === 0) {
+    res.status(404).json({ message: `Cannot find workout plan with id ${id}` });
+    return;
+  } else if (!user.workoutPlans[0].verifyNumberOfWeeksEqualsLength()) {
+    res
+      .status(406)
+      .json("The number of weeks does not match the length of the plan.");
+    return;
+  }
+  if (!user.currentWorkoutPlan) user.currentWorkoutPlan = user.workoutPlans[0];
+  const previousWorkoutPlan: workoutPlanDocument = user.currentWorkoutPlan;
+  previousWorkoutPlan.status = "Not started";
+  await previousWorkoutPlan.save();
+  user.currentWorkoutPlan = user.workoutPlans[0];
+  user.currentWorkoutPlan.status = "In progress" as workoutPlanStatus;
+  await Promise.all([
+    user.currentWorkoutPlan.save(),
+    user.updateOne({ currentWorkoutPlan: user.currentWorkoutPlan }),
+  ]);
+  res.json("Status updated to 'In Progress'");
 }
 
 // utility function which throws an error if the input weeks array contains duplicate position fields
