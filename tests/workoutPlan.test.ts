@@ -5,7 +5,11 @@ import mongoose from "mongoose";
 import { userDocument, User } from "../src/models/user";
 import { JWT_SECRET } from "../keys.json";
 import jwt from "jsonwebtoken";
-import { WorkoutPlan, workoutPlanDocument } from "../src/models/workoutPlan";
+import {
+  WorkoutPlan,
+  workoutPlanDocument,
+  workoutPlanStatus,
+} from "../src/models/workoutPlan";
 import { Day, weightUnit } from "../src/models/workout";
 
 let token: string;
@@ -40,6 +44,7 @@ interface workoutPlanData {
   name: string;
   length?: number;
   current?: boolean;
+  status?: workoutPlanStatus;
   weeks: Array<weekData>;
 }
 
@@ -159,6 +164,13 @@ describe("POST /workoutPlans", () => {
       expect(workoutPlan!.length).toBe(0);
     });
 
+    it("should default the status to 'Not started' if none is given in the request", async () => {
+      await postWorkoutPlan(validWorkoutPlanData);
+      const workoutPlan: workoutPlanDocument | null = await WorkoutPlan.findOne().lean();
+      expect(workoutPlan).not.toBeNull();
+      expect(workoutPlan!.status).toBe("Not started");
+    });
+
     it("should default the repeat of a week to 0 if none is given in the request", async () => {
       await postWorkoutPlan({
         ...workoutPlanData,
@@ -218,6 +230,18 @@ describe("POST /workoutPlans", () => {
       expect(response.status).toBe(406);
       expect(response.body.field).toBe("length");
       expect(response.body.error).toBe("Length must be a non-negative integer");
+    });
+
+    it("should respond with a 406 if status is an invalid status", async () => {
+      const response: Response = await postWorkoutPlan({
+        ...workoutPlanData,
+        status: ("Invalid status!" as unknown) as workoutPlanStatus,
+      });
+      expect(response.status).toBe(406);
+      expect(response.body.field).toBe("status");
+      expect(response.body.error).toBe(
+        "Status must be one of 'Completed', 'In Progress' or 'Not started'"
+      );
     });
 
     it("should respond with a 406 if a week is missing a position", async () => {
