@@ -38,7 +38,7 @@ export async function index(
     "workoutPlans"
   )
     .lean()
-    .populate("workoutPlans", "name length status start end");
+    .populate("workoutPlans", "name status start end weeks.repeat");
   const workoutPlans = user?.workoutPlans;
   if (workoutPlans) {
     res.json(workoutPlans);
@@ -132,17 +132,12 @@ export async function start(
     .populate({
       path: "workoutPlans",
       match: { _id: { $eq: id } },
-      select: "_id weeks.repeat length",
+      select: "_id weeks.repeat",
     })
     .populate("currentWorkoutPlan", "status");
 
   if (!user || user.workoutPlans.length === 0) {
     res.status(404).json({ message: `Cannot find workout plan with id ${id}` });
-    return;
-  } else if (!user.workoutPlans[0].verifyNumberOfWeeksEqualsLength()) {
-    res
-      .status(406)
-      .json("The number of weeks does not match the length of the plan.");
     return;
   }
   if (!user.currentWorkoutPlan) user.currentWorkoutPlan = user.workoutPlans[0];

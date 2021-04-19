@@ -42,7 +42,6 @@ afterAll(async () => {
 
 interface workoutPlanData {
   name: string;
-  length?: number;
   current?: boolean;
   status?: workoutPlanStatus;
   weeks: Array<weekData>;
@@ -80,7 +79,6 @@ const validExerciseData: exerciseData = {
 
 const validWorkoutPlanData: workoutPlanData = {
   name: "12 weeks",
-  length: 1,
   weeks: [
     {
       position: 1,
@@ -122,16 +120,13 @@ describe("POST /workoutPlans", () => {
       await postWorkoutPlan(workoutPlanData);
       const workoutPlan: workoutPlanDocument | null = await WorkoutPlan.findOne();
       expect(workoutPlan).not.toBeNull();
-      expect(workoutPlan!.length).toBe(1);
     });
 
     it("should respond with the new workout plan and a 201", async () => {
       const response: Response = await postWorkoutPlan(workoutPlanData);
       expect(response.status).toBe(201);
       expect(response.body).toHaveProperty("name");
-      expect(response.body).toHaveProperty("length");
       expect(response.body.name).toBe(workoutPlanData.name);
-      expect(response.body.length).toBe(workoutPlanData.length);
     });
 
     it("should add the workoutPlan id to the user who made the request", async () => {
@@ -152,16 +147,6 @@ describe("POST /workoutPlans", () => {
       expect(user!.currentWorkoutPlan._id.toString()).toBe(
         workoutPlanId.toString()
       );
-    });
-
-    it("should default the length to 0 if none is given in the request", async () => {
-      await postWorkoutPlan({
-        ...workoutPlanData,
-        length: (undefined as unknown) as number,
-      });
-      const workoutPlan: workoutPlanDocument | null = await WorkoutPlan.findOne().lean();
-      expect(workoutPlan).not.toBeNull();
-      expect(workoutPlan!.length).toBe(0);
     });
 
     it("should default the status to 'Not started' if none is given in the request", async () => {
@@ -203,33 +188,11 @@ describe("POST /workoutPlans", () => {
     it("should respond with a 406 if the name is absent", async () => {
       const response: Response = await postWorkoutPlan({
         name: "",
-        length: 12,
         weeks: [],
       });
       expect(response.status).toBe(406);
       expect(response.body.field).toBe("name");
       expect(response.body.error).toBe("Name is a required field");
-    });
-
-    it("should respond with a 406 if length is not a number", async () => {
-      // purposefully override type system to allow posting of wrong data type
-      const response: Response = await postWorkoutPlan({
-        ...workoutPlanData,
-        length: ("hello" as unknown) as number,
-      });
-      expect(response.status).toBe(406);
-      expect(response.body.field).toBe("length");
-      expect(response.body.error).toBe("Length must be a number");
-    });
-
-    it("should respond with a 406 if length is a negative number", async () => {
-      const response: Response = await postWorkoutPlan({
-        ...workoutPlanData,
-        length: -1,
-      });
-      expect(response.status).toBe(406);
-      expect(response.body.field).toBe("length");
-      expect(response.body.error).toBe("Length must be a non-negative integer");
     });
 
     it("should respond with a 406 if status is an invalid status", async () => {
@@ -344,7 +307,6 @@ describe("GET /workoutPlans", () => {
     const plans = response.body as workoutPlanData[];
     expect(plans.length).toBe(2);
     expect(plans[0].name).toBe(validWorkoutPlanData.name);
-    expect(plans[0].length).toBe(validWorkoutPlanData.length);
   });
 });
 
@@ -359,9 +321,7 @@ describe("GET /workoutPlans/:id", () => {
     const response: Response = await getWorkoutPlan(workoutPlan?.id);
     expect(response.status).toBe(200);
     expect(response.body).toHaveProperty("name");
-    expect(response.body).toHaveProperty("length");
     expect(response.body.name).toBe(validWorkoutPlanData.name);
-    expect(response.body.length).toBe(validWorkoutPlanData.length);
   });
 
   it("should respond with a 404 if the workout plan does not belong to the authorised user", async () => {
@@ -439,13 +399,11 @@ describe("PATCH /workoutPlans/:id", () => {
     const workoutPlan = await WorkoutPlan.findOne();
     const response: Response = await patchWorkoutPlan(workoutPlan!.id, {
       name: "Changed the name",
-      length: 10,
       weeks: [],
     });
 
     expect(response.status).toBe(200);
     expect(response.body.name).toBe("Changed the name");
-    expect(response.body.length).toBe(10);
     expect(response.body.weeks).toHaveLength(0);
   });
 
@@ -455,7 +413,6 @@ describe("PATCH /workoutPlans/:id", () => {
     );
     const response = await patchWorkoutPlan(workoutPlan!.id, {
       name: "some other name",
-      length: 5,
       weeks: [],
     });
 
@@ -465,7 +422,6 @@ describe("PATCH /workoutPlans/:id", () => {
     );
     workoutPlan = await WorkoutPlan.findOne();
     expect(workoutPlan!.name).toBe(validWorkoutPlanData.name);
-    expect(workoutPlan!.length).toBe(validWorkoutPlanData.length);
   });
 });
 
@@ -504,16 +460,5 @@ describe("PATCH /workoutPlans/start/:id", () => {
     );
     // expect original plan's status to be set to 'Not Started'
     expect(workoutPlan!.status).toBe("Not started");
-  });
-
-  it("should not start the plan if the length doesn't match the no. of weeks", async () => {
-    validWorkoutPlanData.length = 2;
-    let response: Response = await postWorkoutPlan(validWorkoutPlanData);
-    const workoutPlanId: string = response.body._id;
-    response = await patchStartWorkoutPlan(workoutPlanId);
-    expect(response.status).toBe(406);
-    expect(response.body).toBe(
-      "The number of weeks does not match the length of the plan."
-    );
   });
 });

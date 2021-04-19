@@ -19,20 +19,12 @@ export interface workoutPlanDocument extends Document {
   name: string;
   start: Date;
   end: Date;
-  length: number;
   status: workoutPlanStatus;
   weeks: Array<Week>;
-  verifyNumberOfWeeksEqualsLength: () => boolean;
 }
 
 const workoutPlanSchema = new Schema<workoutPlanDocument>({
   name: { type: String, required: [true, "Name is a required field"] },
-  length: {
-    type: Number,
-    cast: "Length must be a number",
-    default: 0,
-    min: [0, "Length must be a non-negative integer"],
-  },
   status: {
     type: String,
     enum: {
@@ -56,15 +48,6 @@ const workoutPlanSchema = new Schema<workoutPlanDocument>({
     },
   ],
 });
-
-workoutPlanSchema.methods.verifyNumberOfWeeksEqualsLength = function (): boolean {
-  const length: number = this.length;
-  const actualLength: number = this.weeks.reduce(
-    (acc: number, curr: Week) => acc + curr.repeat + 1,
-    0
-  );
-  return length === actualLength;
-};
 
 export const WorkoutPlan = model<workoutPlanDocument>(
   "WorkoutPlan",
