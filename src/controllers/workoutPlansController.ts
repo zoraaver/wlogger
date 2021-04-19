@@ -8,16 +8,12 @@ export async function create(
   req: Request,
   res: Response<workoutPlanDocument | ResponseError>
 ): Promise<void> {
-  const { name, length, current, weeks } = req.body;
+  const { current, weeks } = req.body;
   try {
     if (weeks !== undefined) {
       findDuplicatePositionsInWeeks(weeks);
     }
-    const workoutPlan: workoutPlanDocument = await WorkoutPlan.create({
-      name,
-      length,
-      weeks,
-    });
+    const workoutPlan: workoutPlanDocument = await WorkoutPlan.create(req.body);
     const user: userDocument | null = await User.findById(req.currentUserId);
     user?.workoutPlans.push(workoutPlan._id);
     if (current && user) user.currentWorkoutPlan = workoutPlan._id;
