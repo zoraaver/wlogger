@@ -2,9 +2,17 @@ import { Document, Schema, model } from "mongoose";
 import { workoutDocument } from "./workout";
 import { workoutSchema } from "./workout";
 
+export type workoutPlanStatus = "In progress" | "Completed" | "Not started";
+const workoutPlanStatuses: workoutPlanStatus[] = [
+  "Completed",
+  "In progress",
+  "Not started",
+];
+
 export interface workoutPlanDocument extends Document {
   name: string;
   length: number;
+  status: workoutPlanStatus;
   weeks: Array<{
     position: number;
     workouts: Array<workoutDocument>;
@@ -19,6 +27,15 @@ const workoutPlanSchema = new Schema<workoutPlanDocument>({
     cast: "Length must be a number",
     default: 0,
     min: [0, "Length must be a non-negative integer"],
+  },
+  status: {
+    type: String,
+    enum: {
+      values: workoutPlanStatuses,
+      message:
+        "Status must be one of 'Completed', 'In Progress' or 'Not started'",
+    },
+    default: "Not started",
   },
   weeks: [
     {
