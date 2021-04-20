@@ -2,10 +2,12 @@ import { Request, Response } from "express";
 import { LeanDocument } from "mongoose";
 import { ResponseError, ResponseMessage } from "../../@types";
 import { User, userDocument } from "../models/user";
+import { Day, days, workoutDocument, daysToNumbers } from "../models/workout";
 import {
   workoutPlanDocument,
   WorkoutPlan,
   workoutPlanStatus,
+  Week,
 } from "../models/workoutPlan";
 
 export async function create(
@@ -26,6 +28,20 @@ export async function create(
   } catch (error) {
     const [, field, message]: string[] = error.message.split(": ");
     res.status(406).json({ field, error: message });
+  }
+}
+
+// utility function which throws an error if the input weeks array contains duplicate position fields
+function findDuplicatePositionsInWeeks(weeks: any[]) {
+  let positionCount: { [element: number]: number } = {};
+  for (const week of weeks) {
+    if (week.position !== undefined) {
+      if (positionCount[week.position] === 1)
+        throw new Error(
+          "Validation error: weeks.position: Position must be unique for each week"
+        );
+      positionCount[week.position] = 1;
+    }
   }
 }
 
@@ -157,16 +173,87 @@ export async function start(
   });
 }
 
-// utility function which throws an error if the input weeks array contains duplicate position fields
-function findDuplicatePositionsInWeeks(weeks: any[]) {
-  let positionCount: { [element: number]: number } = {};
-  for (const week of weeks) {
-    if (week.position !== undefined) {
-      if (positionCount[week.position] === 1)
-        throw new Error(
-          "Validation error: weeks.position: Position must be unique for each week"
-        );
-      positionCount[week.position] = 1;
-    }
+export async function nextWorkout(
+  req: Request,
+  res: Response<string | workoutDocument>
+) {
+  const user: userDocument | null = await User.findById(
+    req.currentUserId,
+    "currentWorkoutPlan"
+  )
+    .populate("currentWorkoutPlan")
+    .lean();
+  const currentWorkoutPlan: workoutPlanDocument = user?.currentWorkoutPlan;
+  if (!currentWorkoutPlan || !user) {
+    res.status(404).json("No current workout plan found.");
+    return;
   }
+  const today: Date = new Date();
+  let weekDifference: number = dateDifferenceInWeeks(
+    goBackToPreviousMonday(currentWorkoutPlan.start),
+    today
+  );
+  modifyPositionsToIncludePreviousWeekRepeats(currentWorkoutPlan.weeks);
+  const workout: string | workoutDocument = findNextWorkout(
+    currentWorkoutPlan,
+    weekDifference,
+    days[today.getDay()]
+  );
+  res.json(workout);
+}
+
+function dateDifferenceInWeeks(d1: Date, d2: Date): number {
+  const millisecondsInWeek: number = 1000 * 60 * 60 * 24 * 7;
+  return Math.floor(
+    (Date.UTC(d2.getFullYear(), d2.getMonth(), d2.getDate()) -
+      Date.UTC(d1.getFullYear(), d1.getMonth(), d1.getDate())) /
+      millisecondsInWeek
+  );
+}
+
+function goBackToPreviousMonday(date: Date): Date {
+  const day: number = date.getDay();
+  let dayDifference: number = day - 1;
+  if (dayDifference < 0) dayDifference = 6;
+  const millisecondsInDay: number = 1000 * 60 * 60 * 24;
+  let timeDifference: number = dayDifference * millisecondsInDay;
+  date.setTime(date.getTime() - timeDifference);
+  return date;
+}
+
+function modifyPositionsToIncludePreviousWeekRepeats(weeks: Week[]): void {
+  weeks.sort((a: Week, b: Week) => a.position - b.position);
+  let actualPosition: number = 1;
+  for (const week of weeks) {
+    week.position = actualPosition;
+    actualPosition = actualPosition + week.repeat + 1;
+  }
+}
+
+function findNextWorkout(
+  workoutPlan: workoutPlanDocument,
+  weekDifference: number,
+  dayOfWeek: Day
+): workoutDocument | string {
+  const weeks: Week[] = workoutPlan.weeks;
+  const lastWeek: Week = weeks[weeks.length - 1];
+  if (weekDifference >= lastWeek.position + lastWeek.repeat) return "Completed";
+  let weekIndex: number = 0;
+  while (
+    weeks[weekIndex].position + weeks[weekIndex].repeat <
+    weekDifference + 1
+  ) {
+    ++weekIndex;
+  }
+  let workout: workoutDocument | undefined = undefined;
+  while (workout === undefined) {
+    if (weekIndex >= weeks.length)
+      return "All workouts in the plan have been completed.";
+    workout = weeks[weekIndex].workouts.find(
+      (w: workoutDocument) =>
+        daysToNumbers[w.dayOfWeek] >= daysToNumbers[dayOfWeek]
+    );
+    ++weekIndex;
+  }
+  return workout;
 }
