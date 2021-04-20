@@ -188,7 +188,7 @@ export async function nextWorkout(
     res.status(404).json("No current workout plan found.");
     return;
   }
-  const today: Date = new Date();
+  const today: Date = new Date(Date.now());
   let weekDifference: number = dateDifferenceInWeeks(
     goBackToPreviousMonday(currentWorkoutPlan.start),
     today
@@ -239,21 +239,64 @@ function findNextWorkout(
   const lastWeek: Week = weeks[weeks.length - 1];
   if (weekDifference >= lastWeek.position + lastWeek.repeat) return "Completed";
   let weekIndex: number = 0;
+  // increment index till it matches the current week
   while (
     weeks[weekIndex].position + weeks[weekIndex].repeat <
     weekDifference + 1
   ) {
     ++weekIndex;
   }
-  let workout: workoutDocument | undefined = undefined;
-  while (workout === undefined) {
-    if (weekIndex >= weeks.length)
-      return "All workouts in the plan have been completed.";
-    workout = weeks[weekIndex].workouts.find(
-      (w: workoutDocument) =>
-        daysToNumbers[w.dayOfWeek] >= daysToNumbers[dayOfWeek]
-    );
-    ++weekIndex;
+  const currentWeek: Week = weeks[weekIndex];
+  const repeatWeeksRemaining: number =
+    currentWeek.repeat + currentWeek.position - weekDifference - 1;
+  // look for workout in current week with a day of week greater than or equal to current day of week
+  let workout: workoutDocument | undefined = findWorkoutInCurrentWeek(
+    currentWeek,
+    dayOfWeek,
+    repeatWeeksRemaining
+  );
+  if (workout) return workout;
+  // otherwise search following weeks
+  return findWorkoutInUpcomingWeeks(weekIndex, weeks);
+}
+
+function findWorkoutInCurrentWeek(
+  week: Week,
+  dayOfWeek: Day,
+  repeatWeeksRemaining: number
+): workoutDocument | undefined {
+  if (week.workouts.length === 0) return undefined;
+  let workout = week.workouts.find(
+    (w: workoutDocument) =>
+      daysToNumbers[w.dayOfWeek] >= daysToNumbers[dayOfWeek]
+  );
+  sortWorkoutsByDayOfWeek(week);
+  if (!workout && repeatWeeksRemaining !== 0) {
+    workout = week.workouts[0];
   }
   return workout;
+}
+
+function findWorkoutInUpcomingWeeks(
+  weekIndex: number,
+  weeks: Week[]
+): string | workoutDocument {
+  let workout: workoutDocument | undefined = undefined;
+  while (workout === undefined) {
+    ++weekIndex;
+    if (weekIndex >= weeks.length)
+      return "All workouts in the plan have been completed.";
+    // make sure workouts are sorted by day of week
+    sortWorkoutsByDayOfWeek(weeks[weekIndex]);
+    if (weeks[weekIndex].workouts.length > 0)
+      workout = weeks[weekIndex].workouts[0];
+  }
+  return workout;
+}
+
+function sortWorkoutsByDayOfWeek(week: Week): void {
+  week.workouts.sort(
+    (a: workoutDocument, b: workoutDocument) =>
+      daysToNumbers[a.dayOfWeek] - daysToNumbers[b.dayOfWeek]
+  );
 }
