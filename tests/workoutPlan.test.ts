@@ -99,15 +99,15 @@ const validWorkoutPlanData: workoutPlanData = {
       position: 1,
       workouts: [
         { dayOfWeek: "Monday", exercises: [validExerciseData] },
-        { dayOfWeek: "Saturday", exercises: [validExerciseData] },
+        { dayOfWeek: "Sunday", exercises: [validExerciseData] },
       ],
     },
     {
       position: 2,
       repeat: 2,
       workouts: [
-        { dayOfWeek: "Monday", exercises: [validExerciseData] },
-        { dayOfWeek: "Wednesday", exercises: [validExerciseData] },
+        { dayOfWeek: "Tuesday", exercises: [validExerciseData] },
+        { dayOfWeek: "Thursday", exercises: [validExerciseData] },
         { dayOfWeek: "Friday", exercises: [validExerciseData] },
       ],
     },
@@ -488,7 +488,6 @@ describe("PATCH /workoutPlans/start/:id", () => {
 });
 
 describe("GET /workoutPlans/nextWorkout", () => {
-  beforeAll(() => {});
   function getNextWorkout(): Test {
     return request(app).get("/workoutPlans/nextWorkout");
   }
@@ -526,11 +525,73 @@ describe("GET /workoutPlans/nextWorkout", () => {
     expect(response.body).toBe("All workouts in the plan have been completed.");
   });
 
-  // it("should return the next workout from the current date otherwise", async () => {
-  //   // start plan 5 weeks prior to current date
-  //   await startWorkoutPlanOnDate(new Date(2021, 2, 25));
-  //   // set today's date as a Sunday on last day of plan => no workouts left
-  //   fakeCurrentDate(new Date(2021, 3, 25));
-  //   const response: Response = await getNextWorkout();
-  // });
+  // workout plan structure:
+  // weeks: [
+  //   {
+  //     position: 1,
+  //     workouts: [
+  //       { dayOfWeek: "Monday", exercises: [validExerciseData] },
+  //       { dayOfWeek: "Sunday", exercises: [validExerciseData] },
+  //     ],
+  //   },
+  //   {
+  //     position: 2,
+  //     repeat: 2,
+  //     workouts: [
+  //       { dayOfWeek: "Tuesday", exercises: [validExerciseData] },
+  //       { dayOfWeek: "Thursday", exercises: [validExerciseData] },
+  //       { dayOfWeek: "Friday", exercises: [validExerciseData] },
+  //     ],
+  //   },
+  //   {
+  //     position: 3,
+  //     workouts: [
+  //       { dayOfWeek: "Wednesday", exercises: [validExerciseData] },
+  //       { dayOfWeek: "Saturday", exercises: [validExerciseData] },
+  //     ],
+  //   },
+  // ],
+
+  describe("should return the next workout from the current date otherwise", () => {
+    beforeEach(async () => {
+      // Thursday 25th March 2021 start date => first Monday is 22nd March 2021
+      await startWorkoutPlanOnDate(new Date(2021, 2, 25));
+    });
+    it("set today's date as 26th March => next workout should be Sunday first week ", async () => {
+      fakeCurrentDate(new Date(2021, 2, 26));
+      const response: Response = await getNextWorkout();
+      expect(response.status).toBe(200);
+      expect(response.body.dayOfWeek).toBe("Sunday");
+    });
+    it("set today's date as 9th April => next workout should be Friday second week", async () => {
+      fakeCurrentDate(new Date(2021, 3, 9));
+      const response: Response = await getNextWorkout();
+      expect(response.status).toBe(200);
+      expect(response.body.dayOfWeek).toBe("Friday");
+    });
+    it("set today's date as 10th April => next workout should be Tuesday second week", async () => {
+      fakeCurrentDate(new Date(2021, 3, 10));
+      const response: Response = await getNextWorkout();
+      expect(response.status).toBe(200);
+      expect(response.body.dayOfWeek).toBe("Tuesday");
+    });
+    it("set today's date as 15th April => next workout should be Thursday second week", async () => {
+      fakeCurrentDate(new Date(2021, 3, 15));
+      const response: Response = await getNextWorkout();
+      expect(response.status).toBe(200);
+      expect(response.body.dayOfWeek).toBe("Thursday");
+    });
+    it("set today's date as 17th April => next workout should be Wednesday third week", async () => {
+      fakeCurrentDate(new Date(2021, 3, 17));
+      const response: Response = await getNextWorkout();
+      expect(response.status).toBe(200);
+      expect(response.body.dayOfWeek).toBe("Wednesday");
+    });
+    it("set today's date as 22nd April => next workout should be Saturday third week", async () => {
+      fakeCurrentDate(new Date(2021, 3, 22));
+      const response: Response = await getNextWorkout();
+      expect(response.status).toBe(200);
+      expect(response.body.dayOfWeek).toBe("Saturday");
+    });
+  });
 });
