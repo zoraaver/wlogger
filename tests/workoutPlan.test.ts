@@ -3,18 +3,34 @@ import request, { Test, Response } from "supertest";
 import { MONGO_TEST_URI } from "../src/util/database";
 import mongoose from "mongoose";
 import { userDocument, User } from "../src/models/user";
-import { JWT_SECRET } from "../keys.json";
-import jwt from "jsonwebtoken";
 import {
   WorkoutPlan,
   workoutPlanDocument,
   workoutPlanStatus,
 } from "../src/models/workoutPlan";
 import { Day, weightUnit } from "../src/models/workout";
+import { NextFunction } from "express";
 
-let token: string;
-let user: userDocument | null;
+let user: userDocument;
 const userData = { email: "test@test.com", password: "password" };
+
+jest.mock("../src/middleware/auth", () => ({
+  setCurrentUser: jest
+    .fn()
+    .mockImplementation(
+      (req: Express.Request, res: Express.Response, next: NextFunction) => {
+        req.currentUserId = user.id;
+        next();
+      }
+    ),
+  loggedIn: jest
+    .fn()
+    .mockImplementation(
+      (req: Express.Request, res: Express.Response, next: NextFunction) => {
+        next();
+      }
+    ),
+}));
 
 beforeAll(async () => {
   await mongoose.connect(MONGO_TEST_URI + "_workoutPlan", {
@@ -27,7 +43,6 @@ beforeAll(async () => {
     ...userData,
     confirmed: true,
   });
-  token = jwt.sign(user?._id.toString(), JWT_SECRET);
 });
 
 afterEach(async () => {
@@ -82,16 +97,32 @@ const validWorkoutPlanData: workoutPlanData = {
   weeks: [
     {
       position: 1,
-      workouts: [{ dayOfWeek: "Monday", exercises: [validExerciseData] }],
+      workouts: [
+        { dayOfWeek: "Monday", exercises: [validExerciseData] },
+        { dayOfWeek: "Saturday", exercises: [validExerciseData] },
+      ],
+    },
+    {
+      position: 2,
+      repeat: 2,
+      workouts: [
+        { dayOfWeek: "Monday", exercises: [validExerciseData] },
+        { dayOfWeek: "Wednesday", exercises: [validExerciseData] },
+        { dayOfWeek: "Friday", exercises: [validExerciseData] },
+      ],
+    },
+    {
+      position: 3,
+      workouts: [
+        { dayOfWeek: "Wednesday", exercises: [validExerciseData] },
+        { dayOfWeek: "Saturday", exercises: [validExerciseData] },
+      ],
     },
   ],
 };
 
 function postWorkoutPlan(workoutPlanData: workoutPlanData): Test {
-  return request(app)
-    .post("/workoutPlans")
-    .send(workoutPlanData)
-    .set("Authorisation", token);
+  return request(app).post("/workoutPlans").send(workoutPlanData);
 }
 
 describe("POST /workoutPlans", () => {
@@ -293,7 +324,7 @@ describe("POST /workoutPlans", () => {
 
 describe("GET /workoutPlans", () => {
   function getWorkoutPlans(): Test {
-    return request(app).get("/workoutPlans").set("Authorisation", token);
+    return request(app).get("/workoutPlans");
   }
 
   it("should respond with a 200 and array of the user's workout plans", async () => {
@@ -312,7 +343,7 @@ describe("GET /workoutPlans", () => {
 
 describe("GET /workoutPlans/:id", () => {
   function getWorkoutPlan(id: string): Test {
-    return request(app).get(`/workoutPlans/${id}`).set("Authorisation", token);
+    return request(app).get(`/workoutPlans/${id}`);
   }
 
   it("should respond with a 200 and the workout plan matching the id in the request parameter", async () => {
@@ -338,9 +369,7 @@ describe("GET /workoutPlans/:id", () => {
 
 describe("DELETE /workoutPlans/:id", () => {
   function deleteWorkoutPlan(id: string) {
-    return request(app)
-      .delete(`/workoutPlans/${id}`)
-      .set("Authorisation", token);
+    return request(app).delete(`/workoutPlans/${id}`);
   }
   it("should respond with a 200 and remove the workout plan from the database", async () => {
     await postWorkoutPlan(validWorkoutPlanData);
@@ -389,10 +418,7 @@ describe("DELETE /workoutPlans/:id", () => {
 
 describe("PATCH /workoutPlans/:id", () => {
   function patchWorkoutPlan(id: string, data: workoutPlanData): Test {
-    return request(app)
-      .patch(`/workoutPlans/${id}`)
-      .send(data)
-      .set("Authorisation", token);
+    return request(app).patch(`/workoutPlans/${id}`).send(data);
   }
   it("should respond with a 200 and update the workout plan in the database", async () => {
     await postWorkoutPlan(validWorkoutPlanData);
@@ -425,12 +451,10 @@ describe("PATCH /workoutPlans/:id", () => {
   });
 });
 
+function patchStartWorkoutPlan(id: string): Test {
+  return request(app).patch(`/workoutPlans/start/${id}`);
+}
 describe("PATCH /workoutPlans/start/:id", () => {
-  function patchStartWorkoutPlan(id: string): Test {
-    return request(app)
-      .patch(`/workoutPlans/start/${id}`)
-      .set("Authorisation", token);
-  }
   it("should update the workout plan's status to 'In Progress'", async () => {
     const response: Response = await postWorkoutPlan(validWorkoutPlanData);
     const workoutPlanId: string = response.body._id;
@@ -461,4 +485,52 @@ describe("PATCH /workoutPlans/start/:id", () => {
     // expect original plan's status to be set to 'Not Started'
     expect(workoutPlan!.status).toBe("Not started");
   });
+});
+
+describe("GET /workoutPlans/nextWorkout", () => {
+  beforeAll(() => {});
+  function getNextWorkout(): Test {
+    return request(app).get("/workoutPlans/nextWorkout");
+  }
+  function fakeCurrentDate(date: Date): void {
+    jest.spyOn(global.Date, "now").mockImplementationOnce(() => date.getTime());
+  }
+  async function startWorkoutPlanOnDate(date: Date): Promise<void> {
+    const planResponse: Response = await postWorkoutPlan({
+      ...validWorkoutPlanData,
+    });
+    await patchStartWorkoutPlan(planResponse!.body!._id);
+    await WorkoutPlan.updateOne({}, { start: date });
+  }
+  it("should respond with a 404 if the user has no current workout plan", async () => {
+    await user.updateOne({ currentWorkoutPlan: undefined });
+    const response: Response = await getNextWorkout();
+    expect(response.status).toBe(404);
+    expect(response.body).toBe("No current workout plan found.");
+  });
+
+  it("should return 'Completed' if the current date is beyond the last date of the workout plan", async () => {
+    await startWorkoutPlanOnDate(new Date(2000, 3));
+    const response: Response = await getNextWorkout();
+    expect(response.status).toBe(200);
+    expect(response.body).toBe("Completed");
+  });
+
+  it("should return 'All workouts have been completed' if there are no more workouts past the current date", async () => {
+    // start plan 5 weeks prior to current date
+    await startWorkoutPlanOnDate(new Date(2021, 2, 25));
+    // set today's date as a Sunday on last day of plan => no workouts left
+    fakeCurrentDate(new Date(2021, 3, 25));
+    const response: Response = await getNextWorkout();
+    expect(response.status).toBe(200);
+    expect(response.body).toBe("All workouts in the plan have been completed.");
+  });
+
+  // it("should return the next workout from the current date otherwise", async () => {
+  //   // start plan 5 weeks prior to current date
+  //   await startWorkoutPlanOnDate(new Date(2021, 2, 25));
+  //   // set today's date as a Sunday on last day of plan => no workouts left
+  //   fakeCurrentDate(new Date(2021, 3, 25));
+  //   const response: Response = await getNextWorkout();
+  // });
 });
