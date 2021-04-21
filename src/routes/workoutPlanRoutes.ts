@@ -10,5 +10,6 @@ workoutPlanRoutes.patch("/:id", validateId, workoutPlansController.update);
 workoutPlanRoutes.put("/:id", validateId, workoutPlansController.update);
 workoutPlanRoutes.delete("/:id", validateId, workoutPlansController.destroy);
 workoutPlanRoutes.get("/nextWorkout", workoutPlansController.nextWorkout);
+workoutPlanRoutes.get("/current", workoutPlansController.current);
 workoutPlanRoutes.get("/:id", validateId, workoutPlansController.show);
 workoutPlanRoutes.get("/", workoutPlansController.index);

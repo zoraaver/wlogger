@@ -100,7 +100,7 @@ export async function update(
 export async function destroy(
   req: Request<{ id: string }>,
   res: Response<string | ResponseMessage>
-) {
+): Promise<void> {
   const { id } = req.params;
   const user = await User.findById(req.currentUserId).populate(
     "workoutPlans",
@@ -165,7 +165,7 @@ export async function start(
 export async function nextWorkout(
   req: Request,
   res: Response<WorkoutDateResult>
-) {
+): Promise<void> {
   const user: userDocument | null = await User.findById(
     req.currentUserId,
     "currentWorkoutPlan"
@@ -188,4 +188,20 @@ export async function nextWorkout(
   } else {
     res.json({ ...result.workout?.toJSON(), date: result.date });
   }
+}
+
+export async function current(
+  req: Request,
+  res: Response<string | workoutPlanDocument>
+): Promise<void> {
+  const user: userDocument | null = await User.findById(
+    req.currentUserId,
+    "currentWorkoutPlan"
+  ).populate("currentWorkoutPlan");
+  const currentWorkoutPlan: workoutPlanDocument = user?.currentWorkoutPlan;
+  if (!currentWorkoutPlan) {
+    res.status(404).json("No current workout plan found.");
+    return;
+  }
+  res.json(currentWorkoutPlan);
 }
