@@ -16,3 +16,17 @@ export function goBackToPreviousMonday(date: Date): Date {
   date.setTime(date.getTime() - timeDifference);
   return date;
 }
+
+// utility function which throws an error if the input weeks array contains duplicate position fields
+export function findDuplicatePositionsInWeeks(weeks: any[]) {
+  let positionCount: { [element: number]: number } = {};
+  for (const week of weeks) {
+    if (week.position !== undefined) {
+      if (positionCount[week.position] === 1)
+        throw new Error(
+          "Validation error: weeks.position: Position must be unique for each week"
+        );
+      positionCount[week.position] = 1;
+    }
+  }
+}
