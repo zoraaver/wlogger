@@ -2,13 +2,17 @@ import { Request, Response } from "express";
 import { LeanDocument } from "mongoose";
 import { ResponseError, ResponseMessage } from "../../@types";
 import { User, userDocument } from "../models/user";
-import { days, workoutDocument } from "../models/workout";
 import {
   workoutPlanDocument,
   WorkoutPlan,
   workoutPlanStatus,
+  WorkoutDateResult,
 } from "../models/workoutPlan";
-import { dateDifferenceInWeeks, goBackToPreviousMonday } from "../util/util";
+import {
+  dateDifferenceInWeeks,
+  findDuplicatePositionsInWeeks,
+  goBackToPreviousMonday,
+} from "../util/util";
 
 export async function create(
   req: Request,
@@ -28,20 +32,6 @@ export async function create(
   } catch (error) {
     const [, field, message]: string[] = error.message.split(": ");
     res.status(406).json({ field, error: message });
-  }
-}
-
-// utility function which throws an error if the input weeks array contains duplicate position fields
-function findDuplicatePositionsInWeeks(weeks: any[]) {
-  let positionCount: { [element: number]: number } = {};
-  for (const week of weeks) {
-    if (week.position !== undefined) {
-      if (positionCount[week.position] === 1)
-        throw new Error(
-          "Validation error: weeks.position: Position must be unique for each week"
-        );
-      positionCount[week.position] = 1;
-    }
   }
 }
 
@@ -131,8 +121,7 @@ export async function destroy(
   if (user.currentWorkoutPlan && user.currentWorkoutPlan.toString() === id) {
     user.currentWorkoutPlan = undefined;
   }
-  await user.save();
-  await WorkoutPlan.findByIdAndDelete(id);
+  await Promise.all([user.save(), WorkoutPlan.findByIdAndDelete(id)]);
   res.json(id);
 }
 
@@ -175,7 +164,7 @@ export async function start(
 
 export async function nextWorkout(
   req: Request,
-  res: Response<string | workoutDocument>
+  res: Response<WorkoutDateResult>
 ) {
   const user: userDocument | null = await User.findById(
     req.currentUserId,
@@ -191,9 +180,12 @@ export async function nextWorkout(
     goBackToPreviousMonday(currentWorkoutPlan.start),
     today
   );
-  const workout: string | workoutDocument = currentWorkoutPlan.findNextWorkout(
-    weekDifference,
-    days[today.getDay()]
+  const result: WorkoutDateResult = currentWorkoutPlan.findNextWorkout(
+    weekDifference
   );
-  res.json(workout);
+  if (typeof result === "string") {
+    res.json(result);
+  } else {
+    res.json({ ...result.workout?.toJSON(), date: result.date });
+  }
 }
