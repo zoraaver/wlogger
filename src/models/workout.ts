@@ -35,6 +35,7 @@ export const daysToNumbers: { [dayOfWeek: string]: number } = {
 
 export interface workoutDocument extends Document {
   dayOfWeek: Day;
+  calculateDate: (weeksIntoFuture: number) => Date;
   exercises: Array<{
     name: string;
     restInterval: number;
@@ -82,3 +83,16 @@ export const workoutSchema = new Schema<workoutDocument>({
     },
   ],
 });
+
+workoutSchema.methods.calculateDate = function (weeksIntoFuture: number): Date {
+  const today: Day = days[new Date(Date.now()).getDay()];
+  const millisecondsInDay: number = 1000 * 60 * 60 * 24;
+  const millisecondsInWeek: number = 7 * millisecondsInDay;
+  const daysIntoFuture: number =
+    daysToNumbers[this.dayOfWeek] - daysToNumbers[today];
+  return new Date(
+    Date.now() +
+      weeksIntoFuture * millisecondsInWeek +
+      daysIntoFuture * millisecondsInDay
+  );
+};
