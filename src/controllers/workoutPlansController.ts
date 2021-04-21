@@ -2,13 +2,13 @@ import { Request, Response } from "express";
 import { LeanDocument } from "mongoose";
 import { ResponseError, ResponseMessage } from "../../@types";
 import { User, userDocument } from "../models/user";
-import { Day, days, workoutDocument, daysToNumbers } from "../models/workout";
+import { days, workoutDocument } from "../models/workout";
 import {
   workoutPlanDocument,
   WorkoutPlan,
   workoutPlanStatus,
-  Week,
 } from "../models/workoutPlan";
+import { dateDifferenceInWeeks, goBackToPreviousMonday } from "../util/util";
 
 export async function create(
   req: Request,
@@ -180,9 +180,7 @@ export async function nextWorkout(
   const user: userDocument | null = await User.findById(
     req.currentUserId,
     "currentWorkoutPlan"
-  )
-    .populate("currentWorkoutPlan")
-    .lean();
+  ).populate("currentWorkoutPlan");
   const currentWorkoutPlan: workoutPlanDocument = user?.currentWorkoutPlan;
   if (!currentWorkoutPlan || !user) {
     res.status(404).json("No current workout plan found.");
@@ -193,110 +191,9 @@ export async function nextWorkout(
     goBackToPreviousMonday(currentWorkoutPlan.start),
     today
   );
-  modifyPositionsToIncludePreviousWeekRepeats(currentWorkoutPlan.weeks);
-  const workout: string | workoutDocument = findNextWorkout(
-    currentWorkoutPlan,
+  const workout: string | workoutDocument = currentWorkoutPlan.findNextWorkout(
     weekDifference,
     days[today.getDay()]
   );
   res.json(workout);
-}
-
-function dateDifferenceInWeeks(d1: Date, d2: Date): number {
-  const millisecondsInWeek: number = 1000 * 60 * 60 * 24 * 7;
-  return Math.floor(
-    (Date.UTC(d2.getFullYear(), d2.getMonth(), d2.getDate()) -
-      Date.UTC(d1.getFullYear(), d1.getMonth(), d1.getDate())) /
-      millisecondsInWeek
-  );
-}
-
-function goBackToPreviousMonday(date: Date): Date {
-  const day: number = date.getDay();
-  let dayDifference: number = day - 1;
-  if (dayDifference < 0) dayDifference = 6;
-  const millisecondsInDay: number = 1000 * 60 * 60 * 24;
-  let timeDifference: number = dayDifference * millisecondsInDay;
-  date.setTime(date.getTime() - timeDifference);
-  return date;
-}
-
-function modifyPositionsToIncludePreviousWeekRepeats(weeks: Week[]): void {
-  weeks.sort((a: Week, b: Week) => a.position - b.position);
-  let actualPosition: number = 1;
-  for (const week of weeks) {
-    week.position = actualPosition;
-    actualPosition = actualPosition + week.repeat + 1;
-  }
-}
-
-function findNextWorkout(
-  workoutPlan: workoutPlanDocument,
-  weekDifference: number,
-  dayOfWeek: Day
-): workoutDocument | string {
-  const weeks: Week[] = workoutPlan.weeks;
-  const lastWeek: Week = weeks[weeks.length - 1];
-  if (weekDifference >= lastWeek.position + lastWeek.repeat) return "Completed";
-  let weekIndex: number = 0;
-  // increment index till it matches the current week
-  while (
-    weeks[weekIndex].position + weeks[weekIndex].repeat <
-    weekDifference + 1
-  ) {
-    ++weekIndex;
-  }
-  const currentWeek: Week = weeks[weekIndex];
-  const repeatWeeksRemaining: number =
-    currentWeek.repeat + currentWeek.position - weekDifference - 1;
-  // look for workout in current week with a day of week greater than or equal to current day of week
-  let workout: workoutDocument | undefined = findWorkoutInCurrentWeek(
-    currentWeek,
-    dayOfWeek,
-    repeatWeeksRemaining
-  );
-  if (workout) return workout;
-  // otherwise search following weeks
-  return findWorkoutInUpcomingWeeks(weekIndex, weeks);
-}
-
-function findWorkoutInCurrentWeek(
-  week: Week,
-  dayOfWeek: Day,
-  repeatWeeksRemaining: number
-): workoutDocument | undefined {
-  if (week.workouts.length === 0) return undefined;
-  let workout = week.workouts.find(
-    (w: workoutDocument) =>
-      daysToNumbers[w.dayOfWeek] >= daysToNumbers[dayOfWeek]
-  );
-  sortWorkoutsByDayOfWeek(week);
-  if (!workout && repeatWeeksRemaining !== 0) {
-    workout = week.workouts[0];
-  }
-  return workout;
-}
-
-function findWorkoutInUpcomingWeeks(
-  weekIndex: number,
-  weeks: Week[]
-): string | workoutDocument {
-  let workout: workoutDocument | undefined = undefined;
-  while (workout === undefined) {
-    ++weekIndex;
-    if (weekIndex >= weeks.length)
-      return "All workouts in the plan have been completed.";
-    // make sure workouts are sorted by day of week
-    sortWorkoutsByDayOfWeek(weeks[weekIndex]);
-    if (weeks[weekIndex].workouts.length > 0)
-      workout = weeks[weekIndex].workouts[0];
-  }
-  return workout;
-}
-
-function sortWorkoutsByDayOfWeek(week: Week): void {
-  week.workouts.sort(
-    (a: workoutDocument, b: workoutDocument) =>
-      daysToNumbers[a.dayOfWeek] - daysToNumbers[b.dayOfWeek]
-  );
 }
