@@ -492,7 +492,7 @@ describe("GET /workoutPlans/nextWorkout", () => {
     return request(app).get("/workoutPlans/nextWorkout");
   }
   function fakeCurrentDate(date: Date): void {
-    jest.spyOn(global.Date, "now").mockImplementationOnce(() => date.getTime());
+    jest.spyOn(global.Date, "now").mockImplementation(() => date.getTime());
   }
   async function startWorkoutPlanOnDate(date: Date): Promise<void> {
     const planResponse: Response = await postWorkoutPlan({
@@ -562,36 +562,48 @@ describe("GET /workoutPlans/nextWorkout", () => {
       const response: Response = await getNextWorkout();
       expect(response.status).toBe(200);
       expect(response.body.dayOfWeek).toBe("Sunday");
+      const date: Date = new Date(response.body.date);
+      expect(date.toDateString()).toBe("Sun Mar 28 2021");
     });
     it("set today's date as 9th April => next workout should be Friday second week", async () => {
       fakeCurrentDate(new Date(2021, 3, 9));
       const response: Response = await getNextWorkout();
       expect(response.status).toBe(200);
       expect(response.body.dayOfWeek).toBe("Friday");
+      const date: Date = new Date(response.body.date);
+      expect(date.toDateString()).toBe("Fri Apr 09 2021");
     });
     it("set today's date as 10th April => next workout should be Tuesday second week", async () => {
       fakeCurrentDate(new Date(2021, 3, 10));
       const response: Response = await getNextWorkout();
       expect(response.status).toBe(200);
       expect(response.body.dayOfWeek).toBe("Tuesday");
+      const date: Date = new Date(response.body.date);
+      expect(date.toDateString()).toBe("Tue Apr 13 2021");
     });
     it("set today's date as 15th April => next workout should be Thursday second week", async () => {
       fakeCurrentDate(new Date(2021, 3, 15));
       const response: Response = await getNextWorkout();
       expect(response.status).toBe(200);
       expect(response.body.dayOfWeek).toBe("Thursday");
+      const date: Date = new Date(response.body.date);
+      expect(date.toDateString()).toBe("Thu Apr 15 2021");
     });
     it("set today's date as 17th April => next workout should be Wednesday third week", async () => {
       fakeCurrentDate(new Date(2021, 3, 17));
       const response: Response = await getNextWorkout();
       expect(response.status).toBe(200);
       expect(response.body.dayOfWeek).toBe("Wednesday");
+      const date: Date = new Date(response.body.date);
+      expect(date.toDateString()).toBe("Wed Apr 21 2021");
     });
     it("set today's date as 22nd April => next workout should be Saturday third week", async () => {
       fakeCurrentDate(new Date(2021, 3, 22));
       const response: Response = await getNextWorkout();
       expect(response.status).toBe(200);
       expect(response.body.dayOfWeek).toBe("Saturday");
+      const date: Date = new Date(response.body.date);
+      expect(date.toDateString()).toBe("Sat Apr 24 2021");
     });
   });
 });
