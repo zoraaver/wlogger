@@ -197,7 +197,7 @@ export async function current(
   const user: userDocument | null = await User.findById(
     req.currentUserId,
     "currentWorkoutPlan"
-  ).populate("currentWorkoutPlan");
+  ).populate("currentWorkoutPlan", "name status start end weeks.repeat");
   const currentWorkoutPlan: workoutPlanDocument = user?.currentWorkoutPlan;
   if (!currentWorkoutPlan) {
     res.status(404).json("No current workout plan found.");
