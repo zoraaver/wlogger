@@ -515,6 +515,19 @@ describe("GET /workoutPlans/nextWorkout", () => {
     expect(response.body).toBe("Completed");
   });
 
+  it("should update the plan as completed if the current date is beyond the last date of the workout plan", async () => {
+    // start plan 5 weeks prior to current date
+    await startWorkoutPlanOnDate(new Date(2021, 2, 25));
+    // set today's date as a Monday after last week
+    fakeCurrentDate(new Date(2021, 3, 26));
+    await getNextWorkout();
+    const workoutPlan: workoutPlanDocument | null = await WorkoutPlan.findOne();
+    expect(workoutPlan!.status).toBe("Completed");
+    expect(workoutPlan!.end.toDateString()).toBe(
+      new Date(Date.now()).toDateString()
+    );
+  });
+
   it("should return 'All workouts have been completed' if there are no more workouts past the current date", async () => {
     // start plan 5 weeks prior to current date
     await startWorkoutPlanOnDate(new Date(2021, 2, 25));
