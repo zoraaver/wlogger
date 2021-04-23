@@ -8,11 +8,7 @@ import {
   workoutPlanStatus,
   WorkoutDateResult,
 } from "../models/workoutPlan";
-import {
-  dateDifferenceInWeeks,
-  findDuplicatePositionsInWeeks,
-  goBackToPreviousMonday,
-} from "../util/util";
+import { findDuplicatePositionsInWeeks } from "../util/util";
 
 export async function create(
   req: Request,
@@ -175,15 +171,14 @@ export async function nextWorkout(
     res.status(404).json("No current workout plan found.");
     return;
   }
-  const today: Date = new Date(Date.now());
-  let weekDifference: number = dateDifferenceInWeeks(
-    goBackToPreviousMonday(currentWorkoutPlan.start),
-    today
-  );
-  const result: WorkoutDateResult = currentWorkoutPlan.findNextWorkout(
-    weekDifference
-  );
+  const result: WorkoutDateResult = currentWorkoutPlan.findNextWorkout();
   if (typeof result === "string") {
+    if (result === "Completed" && currentWorkoutPlan.status !== "Completed") {
+      await currentWorkoutPlan.updateOne({
+        status: "Completed",
+        end: new Date(Date.now()),
+      });
+    }
     res.json(result);
   } else {
     res.json({ ...result.workout?.toJSON(), date: result.date });
@@ -202,6 +197,20 @@ export async function current(
   if (!currentWorkoutPlan) {
     res.status(404).json("No current workout plan found.");
     return;
+  }
+  currentWorkoutPlan.modifyPositionsToIncludePreviousWeekRepeats();
+  const weekDifference: number = currentWorkoutPlan.calculateWeekDifference();
+  if (
+    currentWorkoutPlan.status !== "Completed" &&
+    currentWorkoutPlan.isCompleted(weekDifference)
+  ) {
+    await currentWorkoutPlan.updateOne(
+      {
+        status: "Completed",
+        end: new Date(Date.now()),
+      },
+      { new: true }
+    );
   }
   res.json(currentWorkoutPlan);
 }
