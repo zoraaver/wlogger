@@ -1,4 +1,5 @@
 import { Document, Schema, model } from "mongoose";
+import { dateDifferenceInWeeks, goBackToPreviousMonday } from "../util/util";
 import { Day, days, daysToNumbers, workoutDocument } from "./workout";
 import { workoutSchema } from "./workout";
 
@@ -22,11 +23,14 @@ export interface workoutPlanDocument extends Document {
   status: workoutPlanStatus;
   weeks: Array<Week>;
   modifyPositionsToIncludePreviousWeekRepeats: () => void;
-  findNextWorkout: (weekDifference: number) => WorkoutDateResult;
+  findNextWorkout: () => WorkoutDateResult;
   findWorkoutInUpcomingWeeks: (
     weekIndex: number,
     weekDifference: number
   ) => WorkoutDateResult;
+  findCurrentWeekIndex: (weekDifference: number) => number;
+  isCompleted: (weekDifference: number) => boolean;
+  calculateWeekDifference: () => number;
 }
 
 const workoutPlanSchema = new Schema<workoutPlanDocument>({
@@ -71,32 +75,56 @@ export type WorkoutDateResult =
       date?: Date;
     };
 
-workoutPlanSchema.methods.findNextWorkout = function (
-  weekDifference: number
-): WorkoutDateResult {
+workoutPlanSchema.methods.calculateWeekDifference = function (): number {
+  const today: Date = new Date(Date.now());
+  const weekDifference: number = dateDifferenceInWeeks(
+    goBackToPreviousMonday(this.start),
+    today
+  );
+  return weekDifference;
+};
+
+workoutPlanSchema.methods.findNextWorkout = function (): WorkoutDateResult {
   this.modifyPositionsToIncludePreviousWeekRepeats();
-  const weeks: Week[] = this.weeks;
-  const lastWeek: Week = weeks[weeks.length - 1];
-  if (weekDifference >= lastWeek.position + lastWeek.repeat) return "Completed";
-  let weekIndex: number = 0;
-  // increment index till it matches the current week
-  while (
-    weeks[weekIndex].position + weeks[weekIndex].repeat <
-    weekDifference + 1
-  ) {
-    ++weekIndex;
+  const weekDifference: number = this.calculateWeekDifference();
+  if (this.isCompleted(weekDifference)) {
+    return "Completed";
   }
-  const currentWeek: Week = weeks[weekIndex];
+  const weekIndex: number = this.findCurrentWeekIndex(weekDifference);
+  const currentWeek: Week = this.weeks[weekIndex];
+
   const repeatWeeksRemaining: number =
     currentWeek.repeat + currentWeek.position - weekDifference - 1;
-  // look for workout in current week with a day of week greater than or equal to current day of week
+
   const { workout, date } = findWorkoutInCurrentWeek(
     currentWeek,
     repeatWeeksRemaining
   );
   if (workout && date) return { workout, date };
-  // otherwise search following weeks
+
   return this.findWorkoutInUpcomingWeeks(weekIndex, weekDifference);
+};
+
+workoutPlanSchema.methods.isCompleted = function (weekDifference: number) {
+  const lastWeek: Week = this.weeks[this.weeks.length - 1];
+  if (weekDifference >= lastWeek.position + lastWeek.repeat) {
+    return true;
+  }
+  return false;
+};
+
+workoutPlanSchema.methods.findCurrentWeekIndex = function (
+  weekDifference: number
+): number {
+  let weekIndex: number = 0;
+  // increment index till it matches the current week
+  while (
+    this.weeks[weekIndex].position + this.weeks[weekIndex].repeat <
+    weekDifference + 1
+  ) {
+    ++weekIndex;
+  }
+  return weekIndex;
 };
 
 function findWorkoutInCurrentWeek(
