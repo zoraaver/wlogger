@@ -34,20 +34,8 @@ export async function login(req: Request, res: Response): Promise<void> {
 }
 
 export async function validate(req: Request, res: Response): Promise<void> {
-  if (req.currentUserId) {
-    let user;
-    try {
-      user = await User.findById(req.currentUserId, "email");
-    } catch (error) {
-      res
-        .status(401)
-        .json({ message: "This page requires you to be logged in." });
-      return;
-    }
-    if (!user) {
-      res.status(404).json({ message: "User cannot be found." });
-      return;
-    }
+  if (req.currentUser) {
+    const user = req.currentUser;
     res.json({ user: { email: user.email, token: user.token } });
   } else {
     res

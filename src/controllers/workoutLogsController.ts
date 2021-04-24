@@ -1,7 +1,6 @@
 import { Request, Response } from "express";
-import { LeanDocument } from "mongoose";
 import { ResponseError, ResponseMessage } from "../../@types";
-import { User, userDocument } from "../models/user";
+import { userDocument } from "../models/user";
 import { exercise, WorkoutLog, workoutLogDocument } from "../models/workoutLog";
 
 export interface workoutLogHeaderData {
@@ -17,9 +16,9 @@ export async function create(
 ): Promise<void> {
   try {
     const workoutLog: workoutLogDocument = await WorkoutLog.create(req.body);
-    const user: userDocument | null = await User.findById(req.currentUserId);
-    user?.workoutLogs.unshift(workoutLog._id);
-    await user?.save();
+    const user = req.currentUser as userDocument;
+    user.workoutLogs.unshift(workoutLog._id);
+    await user.save();
     res.status(201).json(workoutLog);
   } catch (error) {
     const [, field, message]: string[] = error.message.split(": ");
@@ -31,12 +30,9 @@ export async function index(
   req: Request,
   res: Response<workoutLogHeaderData[] | ResponseMessage>
 ): Promise<void> {
-  const user: LeanDocument<userDocument> | null = await User.findById(
-    req.currentUserId,
-    "workoutLogs"
-  )
-    .lean()
-    .populate("workoutLogs");
+  const user = req.currentUser as userDocument;
+  user.populate("workoutLogs");
+  await user.execPopulate();
   if (user) {
     res.json(generateWorkoutLogHeaderData(user.workoutLogs));
   } else {
@@ -67,16 +63,13 @@ export async function show(
   res: Response<workoutLogDocument | ResponseMessage>
 ): Promise<void> {
   const { id } = req.params;
-  const user: LeanDocument<userDocument> | null = await User.findById(
-    req.currentUserId,
-    "workoutLogs"
-  )
-    .lean()
-    .populate({
-      path: "workoutLogs",
-      match: { _id: { $eq: id } },
-    });
-  if (!user || user.workoutLogs.length === 0) {
+  const user = req.currentUser as userDocument;
+  user.populate({
+    path: "workoutLogs",
+    match: { _id: { $eq: id } },
+  });
+  await user.execPopulate();
+  if (user.workoutLogs.length === 0) {
     res.status(404).json({ message: `Cannot find workout log with id ${id}` });
     return;
   }
@@ -88,26 +81,17 @@ export async function destroy(
   res: Response<string | ResponseMessage>
 ): Promise<void> {
   const { id } = req.params;
-
-  const user: userDocument | null = await User.findById(
-    req.currentUserId,
-    "workoutLogs googleId password"
-  ).populate("workoutLogs", "_id");
+  const user = req.currentUser as userDocument;
   const workoutLogToDeleteIndex:
     | number
-    | undefined = user?.workoutLogs.findIndex(
-    (workoutLog: workoutLogDocument) => workoutLog.id === id
+    | undefined = user.workoutLogs.findIndex(
+    (workoutLog: workoutLogDocument) => workoutLog.toString() === id
   );
-  if (
-    !user ||
-    workoutLogToDeleteIndex === undefined ||
-    workoutLogToDeleteIndex < 0
-  ) {
+  if (workoutLogToDeleteIndex === undefined || workoutLogToDeleteIndex < 0) {
     res.status(404).json({ message: `Cannot find workout log with id ${id}` });
     return;
   }
-  await WorkoutLog.findByIdAndDelete(user.workoutLogs[workoutLogToDeleteIndex]);
   user.workoutLogs.splice(workoutLogToDeleteIndex, 1);
-  await user.save();
+  await Promise.all([user.save(), WorkoutLog.findByIdAndDelete(id)]);
   res.json(id);
 }

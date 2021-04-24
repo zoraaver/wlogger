@@ -1,20 +1,22 @@
 import jwt from "jsonwebtoken";
 import { Request, Response, NextFunction } from "express";
 import { JWT_SECRET } from "../../keys.json";
+import { User } from "../models/user";
 
-export function setCurrentUser(
+export async function setCurrentUser(
   req: Request,
   res: Response,
   next: NextFunction
-): void {
+): Promise<void> {
   const authHeader: string | undefined =
     req.get("Authorization") || req.get("Authorisation");
   if (!authHeader) {
-    req.currentUserId = undefined;
+    req.currentUser = null;
     next();
   } else {
     try {
-      req.currentUserId = String(jwt.verify(authHeader, JWT_SECRET));
+      const userId: string = String(jwt.verify(authHeader, JWT_SECRET));
+      req.currentUser = await User.findById(userId);
       next();
     } catch (error) {
       next();
@@ -27,7 +29,7 @@ export function loggedIn(
   res: Response,
   next: NextFunction
 ): void {
-  if (!req.currentUserId) {
+  if (!req.currentUser) {
     res
       .status(401)
       .json({ message: "You need to be logged in to see this page." });
