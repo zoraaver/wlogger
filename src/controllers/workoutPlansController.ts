@@ -6,6 +6,7 @@ import {
   WorkoutPlan,
   workoutPlanStatus,
   WorkoutDateResult,
+  validateWeekPositions,
 } from "../models/workoutPlan";
 
 export async function create(
@@ -15,6 +16,7 @@ export async function create(
   const { current } = req.body;
   try {
     const workoutPlan: workoutPlanDocument = await WorkoutPlan.create(req.body);
+    validateWeekPositions(req.body.weeks);
     const user: userDocument = req.currentUser as userDocument;
     user.workoutPlans.push(workoutPlan._id);
     if (current) user.currentWorkoutPlan = workoutPlan._id;
@@ -31,8 +33,12 @@ export async function index(
   res: Response<workoutPlanDocument[] | ResponseMessage>
 ): Promise<void> {
   const user = req.currentUser as userDocument;
-  user.populate("workoutPlans", "name status start end weeks.repeat");
-  await user.execPopulate();
+  await user
+    .populate(
+      "workoutPlans",
+      "name status start end weeks.repeat weeks.position"
+    )
+    .execPopulate();
   if (user.workoutPlans) {
     res.json(user.workoutPlans);
   } else {
@@ -42,41 +48,22 @@ export async function index(
 
 export async function show(
   req: Request<{ id: string }>,
-  res: Response<workoutPlanDocument | ResponseMessage>
+  res: Response<workoutPlanDocument>
 ): Promise<void> {
   const { id } = req.params;
-  const user = req.currentUser as userDocument;
-  user.populate({
-    path: "workoutPlans",
-    match: { _id: { $eq: id } },
-  });
-  await user.execPopulate();
-  if (user.workoutPlans.length === 0) {
-    res.status(404).json({ message: `Cannot find workout plan with id ${id}` });
-    return;
-  }
-  res.json(user.workoutPlans[0]);
+  const workoutPlan = (await WorkoutPlan.findById(id)) as workoutPlanDocument;
+  res.json(workoutPlan);
 }
 
 export async function update(
   req: Request<{ id: string }>,
-  res: Response<workoutPlanDocument | ResponseMessage | ResponseError>
+  res: Response<workoutPlanDocument | ResponseError>
 ): Promise<void> {
   const { id } = req.params;
-  const user = req.currentUser as userDocument;
-  user.populate({
-    path: "workoutPlans",
-    match: { _id: { $eq: id } },
-    select: "_id",
-  });
-  await user.execPopulate();
-  if (user.workoutPlans.length === 0) {
-    res.status(404).json({ message: `Cannot find workout plan with id ${id}` });
-    return;
-  }
   try {
-    const workoutPlan: workoutPlanDocument | null = await WorkoutPlan.findOneAndUpdate(
-      { _id: user.workoutPlans[0].id },
+    validateWeekPositions(req.body.weeks);
+    const workoutPlan: workoutPlanDocument | null = await WorkoutPlan.findByIdAndUpdate(
+      id,
       req.body,
       { new: true, runValidators: true }
     );
@@ -89,19 +76,13 @@ export async function update(
 
 export async function destroy(
   req: Request<{ id: string }>,
-  res: Response<string | ResponseMessage>
+  res: Response<string>
 ): Promise<void> {
   const { id } = req.params;
   const user = req.currentUser as userDocument;
   const workoutPlanIndex: number | undefined = user.workoutPlans.findIndex(
     (workoutPlan: workoutPlanDocument) => workoutPlan.toString() === id
   );
-
-  if (workoutPlanIndex === undefined || workoutPlanIndex < 0) {
-    res.status(404).json({ message: `Cannot find workout plan with id ${id}` });
-    return;
-  }
-
   // remove workout plan from user doc
   user.workoutPlans.splice(workoutPlanIndex, 1);
   if (user.currentWorkoutPlan && user.currentWorkoutPlan.toString() === id) {
@@ -113,23 +94,18 @@ export async function destroy(
 
 export async function start(
   req: Request<{ id: string }>,
-  res: Response<{ id: string; start: Date } | string | ResponseMessage>
+  res: Response<{ id: string; start: Date } | string>
 ) {
   const { id } = req.params;
   const user = req.currentUser as userDocument;
-  user
+  await user
     .populate({
       path: "workoutPlans",
       match: { _id: { $eq: id } },
       select: "_id weeks.repeat",
     })
-    .populate("currentWorkoutPlan");
-  await user.execPopulate();
-
-  if (user.workoutPlans.length === 0) {
-    res.status(404).json({ message: `Cannot find workout plan with id ${id}` });
-    return;
-  }
+    .populate("currentWorkoutPlan")
+    .execPopulate();
   if (!user.currentWorkoutPlan) user.currentWorkoutPlan = user.workoutPlans[0];
   const previousWorkoutPlan: workoutPlanDocument = user.currentWorkoutPlan;
   previousWorkoutPlan.status = "Not started";
@@ -152,8 +128,7 @@ export async function nextWorkout(
   res: Response<WorkoutDateResult>
 ): Promise<void> {
   const user = req.currentUser as userDocument;
-  user.populate("currentWorkoutPlan");
-  await user.execPopulate();
+  await user.populate("currentWorkoutPlan").execPopulate();
   const currentWorkoutPlan: workoutPlanDocument = user.currentWorkoutPlan;
   if (!currentWorkoutPlan) {
     res.status(404).json("No current workout plan found.");
@@ -161,12 +136,6 @@ export async function nextWorkout(
   }
   const result: WorkoutDateResult = currentWorkoutPlan.findNextWorkout();
   if (typeof result === "string") {
-    if (result === "Completed" && currentWorkoutPlan.status !== "Completed") {
-      await currentWorkoutPlan.updateOne({
-        status: "Completed",
-        end: new Date(Date.now()),
-      });
-    }
     res.json(result);
   } else {
     res.json({ ...result.workout?.toJSON(), date: result.date });
@@ -178,21 +147,16 @@ export async function current(
   res: Response<string | workoutPlanDocument>
 ): Promise<void> {
   const user = req.currentUser as userDocument;
-  user.populate("currentWorkoutPlan", "name status start end weeks.repeat");
-  await user.execPopulate();
+  await user
+    .populate(
+      "currentWorkoutPlan",
+      "name status start end weeks.repeat weeks.position"
+    )
+    .execPopulate();
   const currentWorkoutPlan: workoutPlanDocument = user.currentWorkoutPlan;
   if (!currentWorkoutPlan) {
     res.status(404).json("No current workout plan found.");
     return;
-  }
-  const weekDifference: number = currentWorkoutPlan.calculateWeekDifference();
-  if (
-    currentWorkoutPlan.status !== "Completed" &&
-    currentWorkoutPlan.isCompleted(weekDifference)
-  ) {
-    currentWorkoutPlan.status = "Completed";
-    currentWorkoutPlan.end = new Date(Date.now());
-    await currentWorkoutPlan.save();
   }
   res.json(currentWorkoutPlan);
 }
