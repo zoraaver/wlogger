@@ -5,9 +5,18 @@ export type workoutLog = {
   createdAt: Date;
   updatedAt: Date;
   exercises: Array<exercise>;
+  calculateSetNumber: () => number;
+  generateWorkoutLogHeaderData: () => workoutLogHeaderData;
 };
 
 export type workoutLogDocument = Document & workoutLog;
+
+export interface workoutLogHeaderData {
+  createdAt: Date;
+  setCount: number;
+  exerciseCount: number;
+  _id: string;
+}
 
 export interface exercise {
   name: string;
@@ -44,6 +53,22 @@ const workoutLogSchema = new Schema<workoutLogDocument>(
   },
   { timestamps: true }
 );
+
+workoutLogSchema.methods.generateWorkoutLogHeaderData = function (): workoutLogHeaderData {
+  return {
+    createdAt: this.createdAt,
+    setCount: this.calculateSetNumber(),
+    exerciseCount: this.exercises.length,
+    _id: this._id,
+  };
+};
+
+workoutLogSchema.methods.calculateSetNumber = function (): number {
+  return this.exercises.reduce(
+    (total: number, curr: exercise) => total + curr.sets.length,
+    0
+  );
+};
 
 export const WorkoutLog = model<workoutLogDocument>(
   "WorkoutLog",
