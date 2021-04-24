@@ -18,8 +18,12 @@ jest.mock("../src/middleware/auth", () => ({
   setCurrentUser: jest
     .fn()
     .mockImplementation(
-      (req: Express.Request, res: Express.Response, next: NextFunction) => {
-        req.currentUserId = user.id;
+      async (
+        req: Express.Request,
+        res: Express.Response,
+        next: NextFunction
+      ) => {
+        req.currentUser = (await User.findById(user.id)) as userDocument;
         next();
       }
     ),
@@ -47,6 +51,7 @@ beforeAll(async () => {
 
 afterEach(async () => {
   await WorkoutPlan.deleteMany({});
+  await user.updateOne({ workoutPlans: [] });
 });
 
 afterAll(async () => {

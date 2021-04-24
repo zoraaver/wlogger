@@ -14,7 +14,7 @@ import { weightUnit } from "../src/models/workout";
 import { workoutLogHeaderData } from "../src/controllers/workoutLogsController";
 
 let token: string;
-let user: userDocument | null;
+let user: userDocument;
 const userData = { email: "test@test.com", password: "password" };
 
 beforeAll(async () => {
@@ -33,6 +33,7 @@ beforeAll(async () => {
 
 afterEach(async () => {
   await WorkoutLog.deleteMany({});
+  await user.updateOne({ workoutLogs: [] });
 });
 
 afterAll(async () => {
