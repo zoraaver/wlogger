@@ -51,7 +51,7 @@ beforeAll(async () => {
 
 afterEach(async () => {
   await WorkoutPlan.deleteMany({});
-  await user.updateOne({ workoutPlans: [] });
+  await user.updateOne({ workoutPlans: [], currentWorkoutPlan: null });
 });
 
 afterAll(async () => {
