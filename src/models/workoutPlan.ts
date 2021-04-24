@@ -22,7 +22,6 @@ export interface workoutPlanDocument extends Document {
   end: Date;
   status: workoutPlanStatus;
   weeks: Array<Week>;
-  modifyPositionsToIncludePreviousWeekRepeats: () => void;
   findNextWorkout: () => WorkoutDateResult;
   findWorkoutInUpcomingWeeks: (
     weekIndex: number,
@@ -51,22 +50,13 @@ const workoutPlanSchema = new Schema<workoutPlanDocument>({
       position: {
         type: Number,
         required: [true, "Position is a required field"],
-        min: 0,
+        min: 1,
       },
       workouts: [workoutSchema],
       repeat: { type: Number, default: 0 },
     },
   ],
 });
-
-workoutPlanSchema.methods.modifyPositionsToIncludePreviousWeekRepeats = function (): void {
-  this.weeks.sort((a: Week, b: Week) => a.position - b.position);
-  let actualPosition: number = 1;
-  for (const week of this.weeks) {
-    week.position = actualPosition;
-    actualPosition = actualPosition + week.repeat + 1;
-  }
-};
 
 export type WorkoutDateResult =
   | string
@@ -85,7 +75,6 @@ workoutPlanSchema.methods.calculateWeekDifference = function (): number {
 };
 
 workoutPlanSchema.methods.findNextWorkout = function (): WorkoutDateResult {
-  this.modifyPositionsToIncludePreviousWeekRepeats();
   const weekDifference: number = this.calculateWeekDifference();
   if (this.isCompleted(weekDifference)) {
     return "Completed";
@@ -156,10 +145,7 @@ workoutPlanSchema.methods.findWorkoutInUpcomingWeeks = function (
   weekDifference: number
 ): WorkoutDateResult {
   let workout: workoutDocument | undefined = undefined;
-  while (workout === undefined) {
-    ++weekIndex;
-    if (weekIndex >= this.weeks.length)
-      return "All workouts in the plan have been completed.";
+  while (workout === undefined && ++weekIndex < this.weeks.length) {
     const week: Week = this.weeks[weekIndex];
     // make sure workouts are sorted by day of week
     sortWorkoutsByDayOfWeek(week);
@@ -171,8 +157,23 @@ workoutPlanSchema.methods.findWorkoutInUpcomingWeeks = function (
       };
     }
   }
-  return {};
+  return "All workouts in the plan have been completed.";
 };
+
+workoutPlanSchema.pre("save", validateWeekPositions);
+
+function validateWeekPositions(this: workoutPlanDocument): void {
+  if (!this.isModified("weeks")) return;
+  this.weeks.sort((a: Week, b: Week) => a.position - b.position);
+  let actualPosition: number = 1;
+  this.weeks.forEach((week: Week, weekIndex: number) => {
+    if (week.position !== actualPosition)
+      throw new Error(
+        `Validation error: weeks.${weekIndex}.position: Invalid position, expected ${actualPosition}`
+      );
+    actualPosition = actualPosition + (week.repeat ? week.repeat : 0) + 1;
+  });
+}
 
 function sortWorkoutsByDayOfWeek(week: Week): void {
   week.workouts.sort(

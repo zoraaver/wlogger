@@ -112,7 +112,7 @@ const validWorkoutPlanData: workoutPlanData = {
       ],
     },
     {
-      position: 3,
+      position: 5,
       workouts: [
         { dayOfWeek: "Wednesday", exercises: [validExerciseData] },
         { dayOfWeek: "Saturday", exercises: [validExerciseData] },
@@ -128,21 +128,18 @@ function postWorkoutPlan(workoutPlanData: workoutPlanData): Test {
 describe("POST /workoutPlans", () => {
   let workoutPlanData: workoutPlanData = { ...validWorkoutPlanData };
   afterEach(() => {
+    // create a new deep copy of the valid data for every test
     workoutPlanData = {
       ...validWorkoutPlanData,
-      weeks: [
-        {
-          ...validWorkoutPlanData.weeks[0],
-          workouts: [
-            {
-              ...validWorkoutPlanData.weeks[0].workouts[0],
-              exercises: [
-                { ...validWorkoutPlanData.weeks[0].workouts[0].exercises[0] },
-              ],
-            },
-          ],
-        },
-      ],
+      weeks: validWorkoutPlanData.weeks.map((week: weekData) => ({
+        ...week,
+        workouts: week.workouts.map((workout: workoutData) => ({
+          ...workout,
+          exercises: workout.exercises.map((exercise: exerciseData) => ({
+            ...exercise,
+          })),
+        })),
+      })),
     };
   });
 
@@ -246,15 +243,14 @@ describe("POST /workoutPlans", () => {
       expect(response.body.error).toBe("Position is a required field");
     });
 
-    it("should respond with a 406 if two weeks have the same position", async () => {
-      workoutPlanData.weeks = [
-        { workouts: [], position: 1 },
-        { workouts: [], position: 1 },
-      ];
+    it("should respond with a 406 if the position of a week is invalid", async () => {
+      workoutPlanData.weeks[2].position = 3;
       const response: Response = await postWorkoutPlan(workoutPlanData);
       expect(response.status).toBe(406);
-      expect(response.body.field).toBe("weeks.position");
-      expect(response.body.error).toBe("Position must be unique for each week");
+      expect(response.body.field).toBe("weeks.2.position");
+      expect(response.body.error).toBe(
+        `Invalid position, expected ${validWorkoutPlanData.weeks[2].position}`
+      );
     });
 
     it("should respond with a 406 if a workout does not have a day of the week", async () => {
@@ -620,3 +616,4 @@ describe("GET /workoutPlans/nextWorkout", () => {
     });
   });
 });
+//TODO: add tests for method to get current workout plan
