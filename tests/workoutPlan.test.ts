@@ -8,7 +8,7 @@ import {
   workoutPlanDocument,
   workoutPlanStatus,
 } from "../src/models/workoutPlan";
-import { Day, weightUnit } from "../src/models/workout";
+import { Day, incrementField, weightUnit } from "../src/models/workout";
 import { NextFunction } from "express";
 
 let user: userDocument;
@@ -85,7 +85,7 @@ interface exerciseData {
   repetitions?: number;
   weight?: number;
   unit: weightUnit;
-  autoIncrement?: boolean;
+  autoIncrement?: { field: incrementField; amount: number };
 }
 
 const validExerciseData: exerciseData = {
@@ -111,7 +111,15 @@ const validWorkoutPlanData: workoutPlanData = {
       position: 2,
       repeat: 2,
       workouts: [
-        { dayOfWeek: "Tuesday", exercises: [validExerciseData] },
+        {
+          dayOfWeek: "Tuesday",
+          exercises: [
+            {
+              ...validExerciseData,
+              autoIncrement: { field: "sets", amount: 2 },
+            },
+          ],
+        },
         { dayOfWeek: "Thursday", exercises: [validExerciseData] },
         { dayOfWeek: "Friday", exercises: [validExerciseData] },
       ],
@@ -168,16 +176,6 @@ describe("POST /workoutPlans", () => {
       const workoutPlanId = workoutPlan?._id;
       const user: userDocument | null = await User.findOne();
       expect(user!.workoutPlans.slice(-1)[0]._id.toString()).toBe(
-        workoutPlanId.toString()
-      );
-    });
-
-    it("should set the current workout plan of the user if current is given", async () => {
-      await postWorkoutPlan({ ...workoutPlanData, current: true });
-      const workoutPlan: workoutPlanDocument | null = await WorkoutPlan.findOne();
-      const workoutPlanId = workoutPlan?._id;
-      const user: userDocument | null = await User.findOne();
-      expect(user!.currentWorkoutPlan._id.toString()).toBe(
         workoutPlanId.toString()
       );
     });
@@ -320,6 +318,34 @@ describe("POST /workoutPlans", () => {
       expect(response.body.field).toBe("weeks.0.workouts.0.exercises.0.unit");
       expect(response.body.error).toBe("Unit must be one of 'kg' or 'lb'");
     });
+
+    it("should respond with a 406 if autoIncrement field is invalid", async () => {
+      workoutPlanData.weeks[1].workouts[0].exercises[0].autoIncrement = {
+        field: ("invalid field" as unknown) as incrementField,
+        amount: 2,
+      };
+      const response: Response = await postWorkoutPlan(workoutPlanData);
+      expect(response.status).toBe(406);
+      expect(response.body.field).toBe(
+        "weeks.1.workouts.0.exercises.0.autoIncrement.field"
+      );
+      expect(response.body.error).toBe(
+        "Increment field must be one of 'weight', 'repetitions' or 'sets'"
+      );
+    });
+
+    it("should respond with a 406 if autoIncrement amount is a negative number", async () => {
+      workoutPlanData.weeks[1].workouts[0].exercises[0].autoIncrement = {
+        field: "sets",
+        amount: -1,
+      };
+      const response: Response = await postWorkoutPlan(workoutPlanData);
+      expect(response.status).toBe(406);
+      expect(response.body.field).toBe(
+        "weeks.1.workouts.0.exercises.0.autoIncrement.amount"
+      );
+      expect(response.body.error).toBe("Increment amount must be non-negative");
+    });
   });
 });
 
@@ -385,12 +411,8 @@ describe("DELETE /workoutPlans/:id", () => {
   });
 
   it("should remove the workout plan id from the user's workout plans in the database", async () => {
-    user = user as userDocument;
-    // remove all previous workout plans
-    user.workoutPlans = (undefined as unknown) as any[];
-    await user.save();
-
-    await postWorkoutPlan({ ...validWorkoutPlanData, current: true });
+    const response: Response = await postWorkoutPlan(validWorkoutPlanData);
+    await patchStartWorkoutPlan(response.body._id);
     await postWorkoutPlan({ ...validWorkoutPlanData, name: "another plan" });
     const workoutPlan: workoutPlanDocument | null = await WorkoutPlan.findOne({
       name: validWorkoutPlanData.name,
@@ -492,9 +514,11 @@ describe("GET /workoutPlans/nextWorkout", () => {
   function getNextWorkout(): Test {
     return request(app).get("/workoutPlans/nextWorkout");
   }
+
   function fakeCurrentDate(date: Date): void {
     jest.spyOn(global.Date, "now").mockImplementation(() => date.getTime());
   }
+
   async function startWorkoutPlanOnDate(date: Date): Promise<void> {
     const planResponse: Response = await postWorkoutPlan({
       ...validWorkoutPlanData,
@@ -502,6 +526,7 @@ describe("GET /workoutPlans/nextWorkout", () => {
     await patchStartWorkoutPlan(planResponse!.body!._id);
     await WorkoutPlan.updateOne({}, { start: date });
   }
+
   it("should respond with a 404 if the user has no current workout plan", async () => {
     await user.updateOne({ currentWorkoutPlan: undefined });
     const response: Response = await getNextWorkout();
@@ -579,6 +604,7 @@ describe("GET /workoutPlans/nextWorkout", () => {
       const date: Date = new Date(response.body.date);
       expect(date.toDateString()).toBe("Sun Mar 28 2021");
     });
+
     it("set today's date as 9th April => next workout should be Friday second week", async () => {
       fakeCurrentDate(new Date(2021, 3, 9));
       const response: Response = await getNextWorkout();
@@ -587,6 +613,7 @@ describe("GET /workoutPlans/nextWorkout", () => {
       const date: Date = new Date(response.body.date);
       expect(date.toDateString()).toBe("Fri Apr 09 2021");
     });
+
     it("set today's date as 10th April => next workout should be Tuesday second week", async () => {
       fakeCurrentDate(new Date(2021, 3, 10));
       const response: Response = await getNextWorkout();
@@ -595,6 +622,7 @@ describe("GET /workoutPlans/nextWorkout", () => {
       const date: Date = new Date(response.body.date);
       expect(date.toDateString()).toBe("Tue Apr 13 2021");
     });
+
     it("set today's date as 15th April => next workout should be Thursday second week", async () => {
       fakeCurrentDate(new Date(2021, 3, 15));
       const response: Response = await getNextWorkout();
@@ -603,6 +631,7 @@ describe("GET /workoutPlans/nextWorkout", () => {
       const date: Date = new Date(response.body.date);
       expect(date.toDateString()).toBe("Thu Apr 15 2021");
     });
+
     it("set today's date as 17th April => next workout should be Wednesday third week", async () => {
       fakeCurrentDate(new Date(2021, 3, 17));
       const response: Response = await getNextWorkout();
@@ -611,6 +640,7 @@ describe("GET /workoutPlans/nextWorkout", () => {
       const date: Date = new Date(response.body.date);
       expect(date.toDateString()).toBe("Wed Apr 21 2021");
     });
+
     it("set today's date as 22nd April => next workout should be Saturday third week", async () => {
       fakeCurrentDate(new Date(2021, 3, 22));
       const response: Response = await getNextWorkout();
