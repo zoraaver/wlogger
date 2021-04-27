@@ -29,15 +29,11 @@ export async function index(
 ): Promise<void> {
   const user = req.currentUser as userDocument;
   await user.populate("workoutLogs").execPopulate();
-  if (user) {
-    res.json(
-      user.workoutLogs.map((workoutLog) =>
-        workoutLog.generateWorkoutLogHeaderData()
-      )
-    );
-  } else {
-    res.status(500).json({ message: "An error occurred" });
-  }
+  res.json(
+    user.workoutLogs.map((workoutLog) =>
+      workoutLog.generateWorkoutLogHeaderData()
+    )
+  );
 }
 
 export async function show(
