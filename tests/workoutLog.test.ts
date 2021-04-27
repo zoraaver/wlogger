@@ -6,7 +6,7 @@ import { User, userDocument } from "../src/models/user";
 import { MONGO_TEST_URI } from "../src/util/database";
 import { JWT_SECRET } from "../keys.json";
 import {
-  exercise,
+  loggedExercise,
   WorkoutLog,
   workoutLogDocument,
 } from "../src/models/workoutLog";
@@ -45,7 +45,7 @@ afterAll(async () => {
 interface workoutLogData {
   createdAt?: Date;
   updatedAt?: Date;
-  exercises: Array<exercise>;
+  exercises: Array<loggedExercise>;
 }
 
 const validWorkoutLogData: workoutLogData = {
@@ -81,12 +81,10 @@ describe("POST /workoutLogs", () => {
   afterEach(() => {
     workoutLogData = {
       ...validWorkoutLogData,
-      exercises: [
-        {
-          ...validWorkoutLogData.exercises[0],
-          sets: [{ ...validWorkoutLogData.exercises[0].sets[0] }],
-        },
-      ],
+      exercises: validWorkoutLogData.exercises.map((exercise) => ({
+        ...exercise,
+        sets: exercise.sets.map((set) => ({ ...set })),
+      })),
     };
   });
 
@@ -108,9 +106,9 @@ describe("POST /workoutLogs", () => {
       expect(response.body).toHaveProperty("createdAt");
       expect(response.body).toHaveProperty("updatedAt");
       expect(response.body).toHaveProperty("exercises");
-      expect(response.body.exercises).toHaveLength(1);
+      expect(response.body.exercises).toHaveLength(2);
       expect(response.body.exercises[0]).toHaveProperty("sets");
-      expect(response.body.exercises[0].sets).toHaveLength(1);
+      expect(response.body.exercises[0].sets).toHaveLength(2);
     });
 
     it("should add the workout log id to the user who made the request", async () => {
@@ -122,21 +120,21 @@ describe("POST /workoutLogs", () => {
     });
 
     it("should default the weight of an exercise to 0 if none is given", async () => {
-      delete workoutLogData.exercises[0].sets[0].weight;
+      workoutLogData.exercises[0].sets[0].weight = (undefined as unknown) as number;
       await postWorkoutLog(workoutLogData);
       const workoutLog: workoutLogDocument | null = await WorkoutLog.findOne();
       expect(workoutLog!.exercises[0].sets[0].weight).toBe(0);
     });
 
     it("should default the repetitions of an exercise to 0 if none is given", async () => {
-      delete workoutLogData.exercises[0].sets[0].repetitions;
+      workoutLogData.exercises[0].sets[0].repetitions = (undefined as unknown) as number;
       await postWorkoutLog(workoutLogData);
       const workoutLog: workoutLogDocument | null = await WorkoutLog.findOne();
       expect(workoutLog!.exercises[0].sets[0].repetitions).toBe(0);
     });
 
     it("should default the restInterval of an exercise to 0 if none is given", async () => {
-      delete workoutLogData.exercises[0].sets[0].restInterval;
+      workoutLogData.exercises[0].sets[0].restInterval = (undefined as unknown) as number;
       await postWorkoutLog(workoutLogData);
       const workoutLog: workoutLogDocument | null = await WorkoutLog.findOne();
       expect(workoutLog!.exercises[0].sets[0].restInterval).toBe(0);
