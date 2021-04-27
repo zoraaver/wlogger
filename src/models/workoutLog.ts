@@ -1,10 +1,12 @@
+import { ObjectID } from "bson";
 import { Document, model, Schema } from "mongoose";
-import { weightUnit, weightUnits } from "./workout";
+import { weightUnit, workoutDocument } from "./workout";
 
 export type workoutLog = {
   createdAt: Date;
   updatedAt: Date;
-  exercises: Array<exercise>;
+  workoutId: workoutDocument["_id"];
+  exercises: Array<loggedExercise>;
   calculateSetNumber: () => number;
   generateWorkoutLogHeaderData: () => workoutLogHeaderData;
 };
@@ -18,21 +20,26 @@ export interface workoutLogHeaderData {
   _id: string;
 }
 
-export interface exercise {
+export interface loggedExercise {
   name: string;
+  exerciseId?: ObjectID;
   sets: Array<{
-    weight?: number;
+    weight: number;
     unit: weightUnit;
-    repetitions?: number;
-    restInterval?: number;
+    repetitions: number;
+    restInterval: number;
   }>;
 }
 
+const weightUnits: weightUnit[] = ["kg", "lb"];
+
 const workoutLogSchema = new Schema<workoutLogDocument>(
   {
+    workoutId: { type: Schema.Types.ObjectId, ref: "Workout" },
     exercises: [
       {
         name: { type: String, required: [true, "Name is a required field"] },
+        exerciseId: { type: Schema.Types.ObjectId },
         sets: [
           {
             weight: { type: Number, default: 0 },
@@ -65,7 +72,7 @@ workoutLogSchema.methods.generateWorkoutLogHeaderData = function (): workoutLogH
 
 workoutLogSchema.methods.calculateSetNumber = function (): number {
   return this.exercises.reduce(
-    (total: number, curr: exercise) => total + curr.sets.length,
+    (total: number, curr: loggedExercise) => total + curr.sets.length,
     0
   );
 };
