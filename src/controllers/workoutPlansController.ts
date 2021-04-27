@@ -13,13 +13,11 @@ export async function create(
   req: Request,
   res: Response<workoutPlanDocument | ResponseError>
 ): Promise<void> {
-  const { current } = req.body;
   try {
     const workoutPlan: workoutPlanDocument = await WorkoutPlan.create(req.body);
     validateWeekPositions(req.body.weeks);
     const user: userDocument = req.currentUser as userDocument;
     user.workoutPlans.push(workoutPlan._id);
-    if (current) user.currentWorkoutPlan = workoutPlan._id;
     await user.save();
     res.status(201).json(workoutPlan);
   } catch (error) {
@@ -134,7 +132,9 @@ export async function nextWorkout(
     res.status(404).json("No current workout plan found.");
     return;
   }
-  const result: WorkoutDateResult = currentWorkoutPlan.findNextWorkout();
+  const result: WorkoutDateResult = currentWorkoutPlan.findNextWorkout(
+    user.workoutLogs
+  );
   if (typeof result === "string") {
     res.json(result);
   } else {
