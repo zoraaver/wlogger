@@ -1,3 +1,4 @@
+import { ObjectID } from "bson";
 import { Document, Schema, model } from "mongoose";
 import { dateDifferenceInWeeks, goBackToPreviousMonday } from "../util/util";
 import { Day, days, daysToNumbers, workoutDocument } from "./workout";
@@ -22,7 +23,7 @@ export interface workoutPlanDocument extends Document {
   end: Date;
   status: workoutPlanStatus;
   weeks: Array<Week>;
-  findNextWorkout: () => WorkoutDateResult;
+  findNextWorkout: (workoutLogs: ObjectID[]) => WorkoutDateResult;
   findWorkoutInUpcomingWeeks: (
     weekIndex: number,
     weekDifference: number
@@ -74,7 +75,9 @@ workoutPlanSchema.methods.calculateWeekDifference = function (): number {
   return weekDifference;
 };
 
-workoutPlanSchema.methods.findNextWorkout = function (): WorkoutDateResult {
+workoutPlanSchema.methods.findNextWorkout = function (
+  workoutLogs: ObjectID[]
+): WorkoutDateResult {
   const weekDifference: number = this.calculateWeekDifference();
   if (this.isCompleted(weekDifference)) {
     return "Completed";
@@ -89,7 +92,10 @@ workoutPlanSchema.methods.findNextWorkout = function (): WorkoutDateResult {
     currentWeek,
     repeatWeeksRemaining
   );
-  if (workout && date) return { workout, date };
+  if (workout && date) {
+    if (currentWeek.repeat) workout.applyIncrements(workoutLogs);
+    return { workout, date };
+  }
 
   return this.findWorkoutInUpcomingWeeks(weekIndex, weekDifference);
 };
