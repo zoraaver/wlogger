@@ -21,6 +21,7 @@ export interface userDocument extends Document {
   token?: string;
   currentWorkoutPlan?: workoutPlanDocument["_id"];
 }
+// TODO: add field 'lastCompletedWorkoutDate' to user
 
 const userSchema = new Schema<userDocument>({
   email: {
