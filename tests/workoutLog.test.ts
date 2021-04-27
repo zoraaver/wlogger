@@ -11,7 +11,7 @@ import {
   workoutLogDocument,
 } from "../src/models/workoutLog";
 import { weightUnit } from "../src/models/workout";
-import { workoutLogHeaderData } from "../src/controllers/workoutLogsController";
+import { workoutLogHeaderData } from "../src/models/workoutLog";
 
 let token: string;
 let user: userDocument;
