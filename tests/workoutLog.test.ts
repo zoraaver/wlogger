@@ -42,9 +42,10 @@ afterAll(async () => {
   await mongoose.disconnect();
 });
 
-interface workoutLogData {
+export interface workoutLogData {
   createdAt?: Date;
   updatedAt?: Date;
+  workoutId?: string;
   exercises: Array<loggedExercise>;
 }
 
