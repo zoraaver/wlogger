@@ -132,7 +132,7 @@ export async function nextWorkout(
     res.status(404).json("No current workout plan found.");
     return;
   }
-  const result: WorkoutDateResult = currentWorkoutPlan.findNextWorkout(
+  const result: WorkoutDateResult = await currentWorkoutPlan.findNextWorkout(
     user.workoutLogs
   );
   if (typeof result === "string") {
