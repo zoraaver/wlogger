@@ -23,7 +23,7 @@ export interface workoutPlanDocument extends Document {
   end: Date;
   status: workoutPlanStatus;
   weeks: Array<Week>;
-  findNextWorkout: (workoutLogs: ObjectID[]) => WorkoutDateResult;
+  findNextWorkout: (workoutLogs: ObjectID[]) => Promise<WorkoutDateResult>;
   findWorkoutInUpcomingWeeks: (
     weekIndex: number,
     weekDifference: number
@@ -75,9 +75,9 @@ workoutPlanSchema.methods.calculateWeekDifference = function (): number {
   return weekDifference;
 };
 
-workoutPlanSchema.methods.findNextWorkout = function (
+workoutPlanSchema.methods.findNextWorkout = async function (
   workoutLogs: ObjectID[]
-): WorkoutDateResult {
+): Promise<WorkoutDateResult> {
   const weekDifference: number = this.calculateWeekDifference();
   if (this.isCompleted(weekDifference)) {
     return "Completed";
@@ -93,7 +93,7 @@ workoutPlanSchema.methods.findNextWorkout = function (
     repeatWeeksRemaining
   );
   if (workout && date) {
-    if (currentWeek.repeat) workout.applyIncrements(workoutLogs);
+    if (currentWeek.repeat) await workout.applyIncrements(workoutLogs);
     return { workout, date };
   }
 
