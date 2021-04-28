@@ -141,8 +141,17 @@ workoutSchema.methods.applyIncrements = async function (
         )
           return;
         if (lastLogReachedWorkoutGoal(exercise, loggedExercise)) {
-          exercise[exercise.autoIncrement.field] +=
-            exercise.autoIncrement.amount;
+          if (exercise.autoIncrement.field === "sets") {
+            exercise.sets =
+              loggedExercise.sets.length + exercise.autoIncrement.amount;
+          } else {
+            const lastSetField: number =
+              loggedExercise.sets[loggedExercise.sets.length - 1][
+                exercise.autoIncrement.field
+              ];
+            exercise[exercise.autoIncrement.field] =
+              lastSetField + exercise.autoIncrement.amount;
+          }
         }
       });
     });
