@@ -10,6 +10,9 @@ import {
 } from "../src/models/workoutPlan";
 import { Day, incrementField, weightUnit } from "../src/models/workout";
 import { NextFunction } from "express";
+import { workoutLogData } from "./workoutLog.test";
+import { ObjectID } from "bson";
+import { WorkoutLog } from "../src/models/workoutLog";
 
 let user: userDocument;
 const userData = { email: "test@test.com", password: "password" };
@@ -56,6 +59,7 @@ afterEach(async () => {
 
 afterAll(async () => {
   await WorkoutPlan.deleteMany({});
+  await WorkoutLog.deleteMany({});
   await User.deleteMany({});
   await mongoose.disconnect();
 });
@@ -120,8 +124,24 @@ const validWorkoutPlanData: workoutPlanData = {
             },
           ],
         },
-        { dayOfWeek: "Thursday", exercises: [validExerciseData] },
-        { dayOfWeek: "Friday", exercises: [validExerciseData] },
+        {
+          dayOfWeek: "Thursday",
+          exercises: [
+            {
+              ...validExerciseData,
+              autoIncrement: { field: "repetitions", amount: 1 },
+            },
+          ],
+        },
+        {
+          dayOfWeek: "Friday",
+          exercises: [
+            {
+              ...validExerciseData,
+              autoIncrement: { field: "weight", amount: 2.5 },
+            },
+          ],
+        },
       ],
     },
     {
@@ -650,29 +670,148 @@ describe("GET /workoutPlans/nextWorkout", () => {
       expect(date.toDateString()).toBe("Sat Apr 24 2021");
     });
   });
-});
 
-describe("GET /workoutPlans/current", () => {
-  function getCurrentPlan(): Test {
-    return request(app).get("/workoutPlans/current");
-  }
-  it("should return the current workout plan of the user", async () => {
-    let response: Response = await postWorkoutPlan(validWorkoutPlanData);
-    await patchStartWorkoutPlan(response.body._id);
-    response = await getCurrentPlan();
-    expect(response.status).toBe(200);
-    expect(response.body).toHaveProperty("name");
-    expect(response.body).toHaveProperty("status");
-    expect(response.body).toHaveProperty("weeks");
-    expect(response.body.name).toBe(validWorkoutPlanData.name);
-    expect(response.body.status).toBe("In progress");
-    expect(response.body.weeks).toHaveLength(validWorkoutPlanData.weeks.length);
+  describe("should increment the workout as necessary", () => {
+    let workoutPlan: workoutPlanDocument;
+
+    beforeEach(async () => {
+      // start workout plan on 5th April
+      await startWorkoutPlanOnDate(new Date(2021, 3, 5));
+      workoutPlan = (await WorkoutPlan.findOne()) as workoutPlanDocument;
+    });
+
+    function postWorkoutLog(
+      workoutId: string,
+      exerciseId: ObjectID,
+      createdAt: Date,
+      decrement: number = 0
+    ): Test {
+      // create workout log one week ago (22nd April 2021) with all sets/reps/weight possibly completed
+      const setData = {
+        repetitions: validExerciseData.repetitions as number,
+        weight: validExerciseData.weight as number,
+        unit: validExerciseData.unit,
+        restInterval: validExerciseData.restInterval as number,
+      };
+      setData.repetitions -= decrement;
+      const workoutLogData: workoutLogData = {
+        createdAt,
+        workoutId,
+        exercises: [
+          {
+            name: validExerciseData.name,
+            exerciseId,
+            sets: [setData, setData, setData],
+          },
+        ],
+      };
+      return request(app).post("/workoutLogs").send(workoutLogData);
+    }
+
+    it("should increment the number of sets if the target is met", async () => {
+      // log workout on 20th April (Tuesday) one week ago
+      await postWorkoutLog(
+        workoutPlan.weeks[1].workouts[0]._id,
+        workoutPlan.weeks[1].workouts[0].exercises[0]._id,
+        new Date(2021, 3, 20)
+      );
+      fakeCurrentDate(new Date(2021, 3, 27));
+      const response: Response = await getNextWorkout();
+      expect(response.status).toBe(200);
+      expect(response.body.exercises[0].sets).toBe(validExerciseData.sets + 2);
+      expect(response.body.exercises[0].repetitions).toBe(
+        validExerciseData.repetitions
+      );
+      expect(response.body.exercises[0].weight).toBe(validExerciseData.weight);
+    });
+
+    it("should increment the number of repetitions if the target is met", async () => {
+      // log workout on 22th April (Thursday) one week ago
+      await postWorkoutLog(
+        workoutPlan.weeks[1].workouts[1]._id,
+        workoutPlan.weeks[1].workouts[1].exercises[0]._id,
+        new Date(2021, 3, 22)
+      );
+      fakeCurrentDate(new Date(2021, 3, 29));
+      const response: Response = await getNextWorkout();
+      expect(response.status).toBe(200);
+      expect(response.body.exercises[0].repetitions).toBe(
+        (validExerciseData.repetitions as number) + 1
+      );
+      expect(response.body.exercises[0].weight).toBe(validExerciseData.weight);
+      expect(response.body.exercises[0].sets).toBe(validExerciseData.sets);
+    });
+
+    it("should increment the weight if the target is met", async () => {
+      // log workout on 23th April (Friday) one week ago
+      await postWorkoutLog(
+        workoutPlan.weeks[1].workouts[2]._id,
+        workoutPlan.weeks[1].workouts[2].exercises[0]._id,
+        new Date(2021, 3, 23)
+      );
+      fakeCurrentDate(new Date(2021, 3, 30));
+      const response: Response = await getNextWorkout();
+      expect(response.status).toBe(200);
+      expect(response.body.exercises[0].repetitions).toBe(
+        validExerciseData.repetitions as number
+      );
+      expect(response.body.exercises[0].weight).toBe(
+        (validExerciseData.weight as number) + 2.5
+      );
+      expect(response.body.exercises[0].sets).toBe(validExerciseData.sets);
+      expect(response.body.exercises[0].repetitions).toBe(
+        validExerciseData.repetitions
+      );
+    });
+
+    it("should not increment anything if the target is not met", async () => {
+      // log workout on 23th April (Friday) one week ago
+      await postWorkoutLog(
+        workoutPlan.weeks[1].workouts[2]._id,
+        workoutPlan.weeks[1].workouts[2].exercises[0]._id,
+        new Date(2021, 3, 23),
+        1
+      );
+      fakeCurrentDate(new Date(2021, 3, 30));
+      const response: Response = await getNextWorkout();
+      expect(response.status).toBe(200);
+      expect(response.body.exercises[0].repetitions).toBe(
+        validExerciseData.repetitions as number
+      );
+      expect(response.body.exercises[0].weight).toBe(
+        validExerciseData.weight as number
+      );
+      expect(response.body.exercises[0].sets).toBe(validExerciseData.sets);
+      expect(response.body.exercises[0].repetitions).toBe(
+        validExerciseData.repetitions
+      );
+    });
   });
 
-  it("should return a 404 if there is no plan currently in progress", async () => {
-    await postWorkoutPlan(validWorkoutPlanData);
-    const response: Response = await getCurrentPlan();
-    expect(response.status).toBe(404);
-    expect(response.body).toBe("No current workout plan found.");
+  describe("GET /workoutPlans/current", () => {
+    function getCurrentPlan(): Test {
+      return request(app).get("/workoutPlans/current");
+    }
+    it("should return the current workout plan of the user", async () => {
+      let response: Response = await postWorkoutPlan(validWorkoutPlanData);
+      await patchStartWorkoutPlan(response.body._id);
+      response = await getCurrentPlan();
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveProperty("name");
+      expect(response.body).toHaveProperty("status");
+      expect(response.body).toHaveProperty("weeks");
+      expect(response.body.name).toBe(validWorkoutPlanData.name);
+      expect(response.body.status).toBe("In progress");
+      expect(response.body.weeks).toHaveLength(
+        validWorkoutPlanData.weeks.length
+      );
+    });
+
+    it("should return a 404 if there is no plan currently in progress", async () => {
+      await postWorkoutPlan(validWorkoutPlanData);
+      const response: Response = await getCurrentPlan();
+      expect(response.status).toBe(404);
+      expect(response.body).toBe("No current workout plan found.");
+    });
   });
 });
