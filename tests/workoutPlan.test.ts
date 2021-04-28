@@ -787,31 +787,29 @@ describe("GET /workoutPlans/nextWorkout", () => {
       );
     });
   });
+});
 
-  describe("GET /workoutPlans/current", () => {
-    function getCurrentPlan(): Test {
-      return request(app).get("/workoutPlans/current");
-    }
-    it("should return the current workout plan of the user", async () => {
-      let response: Response = await postWorkoutPlan(validWorkoutPlanData);
-      await patchStartWorkoutPlan(response.body._id);
-      response = await getCurrentPlan();
-      expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty("name");
-      expect(response.body).toHaveProperty("status");
-      expect(response.body).toHaveProperty("weeks");
-      expect(response.body.name).toBe(validWorkoutPlanData.name);
-      expect(response.body.status).toBe("In progress");
-      expect(response.body.weeks).toHaveLength(
-        validWorkoutPlanData.weeks.length
-      );
-    });
+describe("GET /workoutPlans/current", () => {
+  function getCurrentPlan(): Test {
+    return request(app).get("/workoutPlans/current");
+  }
+  it("should return the current workout plan of the user", async () => {
+    let response: Response = await postWorkoutPlan(validWorkoutPlanData);
+    await patchStartWorkoutPlan(response.body._id);
+    response = await getCurrentPlan();
+    expect(response.status).toBe(200);
+    expect(response.body).toHaveProperty("name");
+    expect(response.body).toHaveProperty("status");
+    expect(response.body).toHaveProperty("weeks");
+    expect(response.body.name).toBe(validWorkoutPlanData.name);
+    expect(response.body.status).toBe("In progress");
+    expect(response.body.weeks).toHaveLength(validWorkoutPlanData.weeks.length);
+  });
 
-    it("should return a 404 if there is no plan currently in progress", async () => {
-      await postWorkoutPlan(validWorkoutPlanData);
-      const response: Response = await getCurrentPlan();
-      expect(response.status).toBe(404);
-      expect(response.body).toBe("No current workout plan found.");
-    });
+  it("should return a 404 if there is no plan currently in progress", async () => {
+    await postWorkoutPlan(validWorkoutPlanData);
+    const response: Response = await getCurrentPlan();
+    expect(response.status).toBe(404);
+    expect(response.body).toBe("No current workout plan found.");
   });
 });
