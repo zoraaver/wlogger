@@ -1,5 +1,6 @@
 import { ObjectID } from "bson";
 import { Document, Schema } from "mongoose";
+import { millisecondsInDay, millisecondsInWeek } from "../util/util";
 import { loggedExercise, WorkoutLog, workoutLogDocument } from "./workoutLog";
 
 export type Day =
@@ -112,9 +113,6 @@ export const workoutSchema = new Schema<workoutDocument>({
   ],
 });
 
-const millisecondsInDay: number = 1000 * 60 * 60 * 24;
-const millisecondsInWeek: number = 7 * millisecondsInDay;
-
 workoutSchema.methods.calculateDate = function (weeksIntoFuture: number): Date {
   const today: Day = days[new Date(Date.now()).getDay()];
   const daysIntoFuture: number =
@@ -139,7 +137,7 @@ workoutSchema.methods.applyIncrements = async function (
       this.exercises.forEach((exercise) => {
         if (
           !exercise.autoIncrement ||
-          exercise._id !== loggedExercise.exerciseId
+          exercise._id.toString() !== loggedExercise.exerciseId?.toString()
         )
           return;
         if (lastLogReachedWorkoutGoal(exercise, loggedExercise)) {
