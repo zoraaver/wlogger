@@ -40,10 +40,10 @@ export async function updateCurrentPlanAsCompletedIfNecessary(
       .execPopulate();
     const currentWorkoutPlan = user.currentWorkoutPlan;
     const weekDifference: number = currentWorkoutPlan.calculateWeekDifference();
-    if (
+    const planNeedsToBeCompleted: boolean =
       currentWorkoutPlan.status !== "Completed" &&
-      currentWorkoutPlan.isCompleted(weekDifference)
-    ) {
+      currentWorkoutPlan.isCompleted(weekDifference);
+    if (planNeedsToBeCompleted) {
       currentWorkoutPlan.status = "Completed";
       currentWorkoutPlan.end = new Date(Date.now());
       await currentWorkoutPlan.save();
