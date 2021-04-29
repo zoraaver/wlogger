@@ -1,7 +1,7 @@
 import { app } from "../src/app";
 import jwt from "jsonwebtoken";
 import request, { Response, Test } from "supertest";
-import { MONGO_TEST_URI } from "../src/util/database";
+import { MONGO_TEST_URI } from "../src/config/database";
 import mongoose from "mongoose";
 import { userDocument, User } from "../src/models/user";
 import {

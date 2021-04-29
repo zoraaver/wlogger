@@ -1,6 +1,6 @@
 import { app } from "../src/app";
 import request, { Test, Response } from "supertest";
-import { MONGO_TEST_URI } from "../src/util/database";
+import { MONGO_TEST_URI } from "../src/config/database";
 import mongoose from "mongoose";
 import { userDocument, User } from "../src/models/user";
 import {
@@ -694,7 +694,7 @@ describe("GET /workoutPlans/nextWorkout", () => {
         restInterval: validExerciseData.restInterval as number,
       };
       setData.repetitions -= decrement;
-      const workoutLogData: workoutLogData = {
+      const workoutLog: workoutLogData = {
         createdAt,
         workoutId,
         exercises: [
@@ -705,7 +705,7 @@ describe("GET /workoutPlans/nextWorkout", () => {
           },
         ],
       };
-      return request(app).post("/workoutLogs").send(workoutLogData);
+      return request(app).post("/workoutLogs").send({ workoutLog });
     }
 
     it("should increment the number of sets if the target is met", async () => {

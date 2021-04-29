@@ -1,5 +1,5 @@
 import { app } from "./app";
-import { MONGO_URI } from "./util/database";
+import { MONGO_URI } from "./config/database";
 import mongoose from "mongoose";
 
 mongoose

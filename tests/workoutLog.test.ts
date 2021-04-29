@@ -3,7 +3,7 @@ import request, { Test, Response } from "supertest";
 import mongoose from "mongoose";
 import jwt from "jsonwebtoken";
 import { User, userDocument } from "../src/models/user";
-import { MONGO_TEST_URI } from "../src/util/database";
+import { MONGO_TEST_URI } from "../src/config/database";
 import { JWT_SECRET } from "../keys.json";
 import {
   loggedExercise,
@@ -70,10 +70,10 @@ const validWorkoutLogData: workoutLogData = {
   ],
 };
 
-function postWorkoutLog(workoutLogData: workoutLogData): Test {
+function postWorkoutLog(workoutLog: workoutLogData): Test {
   return request(app)
     .post("/workoutLogs")
-    .send(workoutLogData)
+    .send({ workoutLog })
     .set("Authorisation", token);
 }
 
