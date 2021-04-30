@@ -9,6 +9,8 @@ export type workoutLog = {
   exercises: Array<loggedExercise>;
   calculateSetNumber: () => number;
   generateWorkoutLogHeaderData: () => workoutLogHeaderData;
+  isValidSetIndex: (setIndex: number, exerciseIndex: number) => boolean;
+  isValidExerciseIndex: (exerciseIndex: number) => boolean;
 };
 
 export type workoutLogDocument = Document & workoutLog;
@@ -25,6 +27,7 @@ export interface loggedExercise {
   exerciseId?: ObjectID;
   sets: Array<{
     weight: number;
+    formVideoSize?: number;
     unit: weightUnit;
     repetitions: number;
     restInterval: number;
@@ -53,6 +56,10 @@ const workoutLogSchema = new Schema<workoutLogDocument>(
               },
             },
             repetitions: { type: Number, default: 0 },
+            formVideoSize: {
+              type: Number,
+              min: [0, "File size cannot be negative"],
+            },
           },
         ],
       },
@@ -68,6 +75,27 @@ workoutLogSchema.methods.generateWorkoutLogHeaderData = function (): workoutLogH
     exerciseCount: this.exercises.length,
     _id: this._id,
   };
+};
+
+workoutLogSchema.methods.isValidSetIndex = function isValidSetIndex(
+  setIndex: number,
+  exerciseIndex: number
+): boolean {
+  return (
+    Number.isInteger(setIndex) &&
+    setIndex >= 0 &&
+    setIndex <= this.exercises[exerciseIndex].sets.length
+  );
+};
+
+workoutLogSchema.methods.isValidExerciseIndex = function (
+  exerciseIndex: number
+): boolean {
+  return (
+    Number.isInteger(exerciseIndex) &&
+    exerciseIndex >= 0 &&
+    exerciseIndex < this.exercises.length
+  );
 };
 
 workoutLogSchema.methods.calculateSetNumber = function (): number {
