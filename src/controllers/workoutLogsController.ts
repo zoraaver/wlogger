@@ -6,6 +6,9 @@ import {
   workoutLogDocument,
   workoutLogHeaderData,
 } from "../models/workoutLog";
+import { ReadStream } from "s3-streams";
+import { S3 } from "../config/aws";
+import { WLOGGER_BUCKET } from "../../keys.json";
 
 export async function create(
   req: Request,
@@ -61,4 +64,41 @@ export async function destroy(
   user.workoutLogs.splice(workoutLogToDeleteIndex, 1);
   await Promise.all([user.save(), WorkoutLog.findByIdAndDelete(id)]);
   res.json(id);
+}
+
+export async function videoUpload(req: Request, res: Response): Promise<void> {
+  const workoutLog = req.currentWorkoutLog as workoutLogDocument;
+  for (let i = 0; i < req.files.length; ++i) {
+    const file: Express.Multer.File = (req.files as Express.Multer.File[])[i];
+    const fileParts: string[] = file.originalname.split(".");
+    const exerciseIndex = Number(fileParts[0]);
+    const setIndex = Number(fileParts[1]);
+    workoutLog.exercises[exerciseIndex].sets[setIndex].formVideoSize =
+      file.size;
+  }
+  await workoutLog.save();
+  res.json();
+}
+
+export async function videoDownload(
+  req: Request<{ id: string; setIndex: string; exerciseIndex: string }>,
+  res: Response
+): Promise<void> {
+  const workoutLog = req.currentWorkoutLog as workoutLogDocument;
+  const exerciseIndex = Number(req.params.exerciseIndex);
+  const setIndex = Number(req.params.setIndex);
+  if (
+    !workoutLog.isValidExerciseIndex(exerciseIndex) ||
+    !workoutLog.isValidSetIndex(setIndex, exerciseIndex) ||
+    !workoutLog.exercises[exerciseIndex].sets[setIndex].formVideoSize
+  ) {
+    res.status(404).json();
+    return;
+  }
+  const videoKey: string = `${req.currentUser?.id}/${workoutLog.id}/${exerciseIndex}.${setIndex}.mov`;
+  const src: ReadStream = new ReadStream(S3, {
+    Bucket: WLOGGER_BUCKET,
+    Key: videoKey,
+  });
+  src.pipe(res);
 }
