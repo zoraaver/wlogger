@@ -705,7 +705,7 @@ describe("GET /workoutPlans/nextWorkout", () => {
           },
         ],
       };
-      return request(app).post("/workoutLogs").send({ workoutLog });
+      return request(app).post("/workoutLogs").send(workoutLog);
     }
 
     it("should increment the number of sets if the target is met", async () => {

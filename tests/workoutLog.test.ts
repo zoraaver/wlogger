@@ -73,7 +73,7 @@ const validWorkoutLogData: workoutLogData = {
 function postWorkoutLog(workoutLog: workoutLogData): Test {
   return request(app)
     .post("/workoutLogs")
-    .send({ workoutLog })
+    .send(workoutLog)
     .set("Authorisation", token);
 }
 
