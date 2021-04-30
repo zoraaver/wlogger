@@ -1,10 +1,8 @@
 import { app } from "../src/app";
 import request, { Test, Response } from "supertest";
 import mongoose from "mongoose";
-import jwt from "jsonwebtoken";
 import { User, userDocument } from "../src/models/user";
 import { MONGO_TEST_URI } from "../src/config/database";
-import { JWT_SECRET } from "../keys.json";
 import {
   loggedExercise,
   WorkoutLog,
@@ -12,10 +10,32 @@ import {
 } from "../src/models/workoutLog";
 import { weightUnit } from "../src/models/workout";
 import { workoutLogHeaderData } from "../src/models/workoutLog";
+import { NextFunction } from "express";
 
-let token: string;
 let user: userDocument;
 const userData = { email: "test@test.com", password: "password" };
+
+jest.mock("../src/middleware/auth", () => ({
+  setCurrentUser: jest
+    .fn()
+    .mockImplementation(
+      async (
+        req: Express.Request,
+        res: Express.Response,
+        next: NextFunction
+      ) => {
+        req.currentUser = (await User.findById(user.id)) as userDocument;
+        next();
+      }
+    ),
+  loggedIn: jest
+    .fn()
+    .mockImplementation(
+      (req: Express.Request, res: Express.Response, next: NextFunction) => {
+        next();
+      }
+    ),
+}));
 
 beforeAll(async () => {
   await mongoose.connect(MONGO_TEST_URI + "_workoutLog", {
@@ -28,7 +48,6 @@ beforeAll(async () => {
     ...userData,
     confirmed: true,
   });
-  token = jwt.sign(user?._id.toString(), JWT_SECRET);
 });
 
 afterEach(async () => {
@@ -71,10 +90,7 @@ const validWorkoutLogData: workoutLogData = {
 };
 
 function postWorkoutLog(workoutLog: workoutLogData): Test {
-  return request(app)
-    .post("/workoutLogs")
-    .send(workoutLog)
-    .set("Authorisation", token);
+  return request(app).post("/workoutLogs").send(workoutLog);
 }
 
 describe("POST /workoutLogs", () => {
@@ -173,9 +189,7 @@ describe("GET /workoutLogs", () => {
   it("should return an array of workout logs for the authorised user", async () => {
     await postWorkoutLog(validWorkoutLogData);
     await postWorkoutLog(validWorkoutLogData);
-    const response: Response = await request(app)
-      .get("/workoutLogs")
-      .set("Authorisation", token);
+    const response: Response = await request(app).get("/workoutLogs");
 
     expect(response.status).toBe(200);
     const workoutLogHeaderData: workoutLogHeaderData[] = response.body;
@@ -187,7 +201,7 @@ describe("GET /workoutLogs", () => {
 
 describe("GET /workoutLogs/:id", () => {
   function getWorkoutLog(id: string): Test {
-    return request(app).get(`/workoutLogs/${id}`).set("Authorisation", token);
+    return request(app).get(`/workoutLogs/${id}`);
   }
   it("should return a workout log corresponding to the id in the request parameter", async () => {
     await postWorkoutLog(validWorkoutLogData);
@@ -216,9 +230,7 @@ describe("GET /workoutLogs/:id", () => {
 
 describe("DELETE /workoutLogs/:id", () => {
   function deleteWorkoutLog(id: string): Test {
-    return request(app)
-      .delete(`/workoutLogs/${id}`)
-      .set("Authorisation", token);
+    return request(app).delete(`/workoutLogs/${id}`);
   }
 
   it("should respond with a 200 and remove the workout log from the database", async () => {
