@@ -17,3 +17,19 @@ export function goBackToPreviousMonday(date: Date): Date {
   date.setTime(date.getTime() - timeDifference);
   return date;
 }
+
+type videoFileMimeType = "video/quicktime" | "video/mp4" | "video/x-msvideo";
+export function isValidFileType(fileType: string): boolean {
+  const validFileTypes: videoFileMimeType[] = [
+    "video/quicktime",
+    "video/mp4",
+    "video/x-msvideo",
+  ];
+  return !validFileTypes.includes(fileType as videoFileMimeType);
+}
+
+type videoFileExtension = "mov" | "avi" | "mp4";
+export function isValidFileExtension(extension: string): boolean {
+  const validFileExtensions: videoFileExtension[] = ["avi", "mov", "mp4"];
+  return !validFileExtensions.includes(extension as videoFileExtension);
+}
