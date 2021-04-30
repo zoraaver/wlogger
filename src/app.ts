@@ -2,6 +2,7 @@ import express, { Application } from "express";
 import helmet from "helmet";
 import morgan from "morgan";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import { authRoutes } from "./routes/authRoutes";
 import { userRoutes } from "./routes/userRoutes";
 import { workoutPlanRoutes } from "./routes/workoutPlanRoutes";
@@ -10,10 +11,8 @@ import { workoutLogRoutes } from "./routes/workoutLogRoutes";
 
 export const app: Application = express();
 
-// parse incoming requests as JSON
 app.use(express.json());
-
-// security
+app.use(cookieParser());
 app.use(helmet());
 
 if (
@@ -22,8 +21,7 @@ if (
 ) {
   // logging
   app.use(morgan("dev"));
-  // disable all cors errors
-  app.use(cors());
+  app.use(cors({ credentials: true, origin: "http://localhost:3000" }));
 }
 
 app.use(setCurrentUser);

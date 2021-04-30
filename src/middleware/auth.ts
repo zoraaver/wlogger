@@ -9,7 +9,9 @@ export async function setCurrentUser(
   next: NextFunction
 ): Promise<void> {
   const authHeader: string | undefined =
-    req.get("Authorization") || req.get("Authorisation");
+    req.get("Authorization") ||
+    req.get("Authorisation") ||
+    req.cookies["token"];
   if (!authHeader) {
     req.currentUser = null;
     next();

@@ -17,6 +17,12 @@ const validLoginData: loginData = {
   password: "password",
 };
 
+function extractCookieFromResponse(response: Response): string {
+  const cookieHeaders: string[] = response.headers["set-cookie"];
+  const cookieString = cookieHeaders[0];
+  return cookieString.split(";")[0].split("=")[1];
+}
+
 beforeAll(async () => {
   await mongoose.connect(MONGO_TEST_URI + "_auth", {
     useNewUrlParser: true,
@@ -39,10 +45,7 @@ describe("POST /auth/login", () => {
   });
 
   function postLogin(data: loginData): Test {
-    return request(app)
-      .post("/auth/login")
-      .send(data)
-      .set("Accept", "application/json");
+    return request(app).post("/auth/login").send(data);
   }
 
   describe("with invalid credentials", () => {
@@ -117,8 +120,7 @@ describe("POST /auth/login", () => {
       );
 
       expect(response.status).toBe(200);
-      expect(response.body.user).toHaveProperty("token");
-      const token: string = response.body.user.token;
+      const token: string = extractCookieFromResponse(response);
       expect(jwt.verify(token, JWT_SECRET)).toBe(
         // user and user._id must be defined at this point as the user is inserted into the db before all tests
         user!._id!.toString()
@@ -157,10 +159,7 @@ jest.mock("google-auth-library", () => {
 
 describe("POST /auth/google", () => {
   function postGoogleLogin(idToken: string): Test {
-    return request(app)
-      .post("/auth/google")
-      .send({ idToken })
-      .set("Accept", "application/json");
+    return request(app).post("/auth/google").send({ idToken });
   }
 
   describe("with invalid credentials", () => {
@@ -181,8 +180,7 @@ describe("POST /auth/google", () => {
     it("should create a user if the user is not already present in the database", async () => {
       const response: Response = await postGoogleLogin(validIdToken);
       expect(response.status).toBe(201);
-      expect(response.body.user).toHaveProperty("token");
-      const token: string = response.body.user.token;
+      const token: string = extractCookieFromResponse(response);
 
       const user: userDocument | null = await User.findOne({ email });
       expect(user).not.toBeNull();
@@ -197,8 +195,7 @@ describe("POST /auth/google", () => {
       const response: Response = await postGoogleLogin(validIdToken);
 
       expect(response.status).toBe(200);
-      expect(response.body.user).toHaveProperty("token");
-      const token: string = response.body.user.token;
+      const token: string = extractCookieFromResponse(response);
       expect(jwt.verify(token, JWT_SECRET)).toBe(user._id.toString());
       expect(await User.estimatedDocumentCount()).toBe(1);
     });
@@ -211,8 +208,7 @@ describe("POST /auth/google", () => {
       const response: Response = await postGoogleLogin(validIdToken);
 
       expect(response.status).toBe(200);
-      expect(response.body.user).toHaveProperty("token");
-      const token: string = response.body.user.token;
+      const token: string = extractCookieFromResponse(response);
       expect(jwt.verify(token, JWT_SECRET)).toBe(user._id.toString());
       user = await User.findOne({ email });
       expect(user!.googleId).toBe(googleId);
@@ -239,8 +235,7 @@ describe("GET /auth/validate", () => {
     const id = user._id;
     const response: Response = await getValidate(id.toString());
     expect(response.status).toBe(200);
-    expect(response.body.user).toHaveProperty("token");
-    const token = response.body.user.token;
+    const token = extractCookieFromResponse(response);
     expect(jwt.verify(token, JWT_SECRET)).toEqual(user.id.toString());
   });
 
@@ -266,10 +261,7 @@ describe("POST /auth/verify", () => {
     await User.deleteMany({});
   });
   function postVerify(verificationToken?: string): Test {
-    return request(app)
-      .post("/auth/verify")
-      .send({ verificationToken })
-      .set("Accept", "application/json");
+    return request(app).post("/auth/verify").send({ verificationToken });
   }
   it("should respond with a 406 if the verification token is invalid", async () => {
     const response: Response = await postVerify("invalid verification token");
@@ -296,9 +288,8 @@ describe("POST /auth/verify", () => {
     const response: Response = await postVerify(verificationToken);
     expect(response.status).toBe(200);
     expect(response.body).toHaveProperty("user");
-    expect(response.body.user).toHaveProperty("token");
     expect(response.body.user.email).toBe(user.email);
-    const token: string = response.body.user.token;
+    const token: string = extractCookieFromResponse(response);
     expect(jwt.verify(token, JWT_SECRET)).toBe(user._id.toString());
     await user.delete();
   });

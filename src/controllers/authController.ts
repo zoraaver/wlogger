@@ -30,13 +30,15 @@ export async function login(req: Request, res: Response): Promise<void> {
       .json({ message: "Please verify your email address to login" });
     return;
   }
-  res.json({ user: { email: user.email, token: user.token } });
+  setCookieToken(res, user.token as string);
+  res.json({ user: { email: user.email } });
 }
 
 export async function validate(req: Request, res: Response): Promise<void> {
   if (req.currentUser) {
     const user = req.currentUser;
-    res.json({ user: { email: user.email, token: user.token } });
+    setCookieToken(res, user.token as string);
+    res.json({ user: { email: user.email } });
   } else {
     res
       .status(401)
@@ -52,7 +54,8 @@ export async function googleLogin(req: Request, res: Response): Promise<void> {
     // first try to find user in db by their google id
     let user: userDocument | null = await User.findOne({ googleId }, "email");
     if (user) {
-      res.json({ user: { email: user.email, token: user.token } });
+      setCookieToken(res, user.token as string);
+      res.json({ user: { email: user.email } });
       return;
     }
     // then look for a matching email (i.e. user has signed up previously via email and password)
@@ -61,13 +64,15 @@ export async function googleLogin(req: Request, res: Response): Promise<void> {
       user.googleId = googleId;
       user.confirmed = true;
       await user.save();
-      res.json({ user: { email: user.email, token: user.token } });
+      setCookieToken(res, user.token as string);
+      res.json({ user: { email: user.email } });
       return;
     }
     // otherwise create a new user in db
     user = new User({ email, googleId, confirmed: true });
     await user.save();
-    res.status(201).json({ user: { email: user.email, token: user.token } });
+    setCookieToken(res, user.token as string);
+    res.status(201).json({ user: { email: user.email } });
   } catch (error) {
     res.status(401).json({ message: "Authentication failed" });
   }
@@ -104,9 +109,19 @@ export async function verify(req: Request, res: Response): Promise<void> {
     }
     user.confirmed = true;
     await user.save();
-    res.json({ user: { email: user.email, token: user.token } });
+    setCookieToken(res, user.token as string);
+    res.json({ user: { email: user.email } });
   } catch (error) {
     res.status(406).json({ message: "Invalid verification token" });
     return;
   }
+}
+
+export async function logout(req: Request, res: Response): Promise<void> {
+  res.clearCookie("token");
+  res.json();
+}
+
+function setCookieToken(res: Response, token: string) {
+  res.cookie("token", token, { httpOnly: true, secure: true });
 }
