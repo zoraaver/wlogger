@@ -15,6 +15,9 @@ export type workoutLog = {
 
 export type workoutLogDocument = Document & workoutLog;
 
+export type videoFileExtension = "mov" | "avi" | "mp4";
+export const validFileExtensions: videoFileExtension[] = ["avi", "mov", "mp4"];
+
 export interface workoutLogHeaderData {
   createdAt: Date;
   setCount: number;
@@ -27,7 +30,10 @@ export interface loggedExercise {
   exerciseId?: ObjectID;
   sets: Array<{
     weight: number;
-    formVideoSize?: number;
+    formVideo?: {
+      size: number;
+      extension: videoFileExtension;
+    };
     unit: weightUnit;
     repetitions: number;
     restInterval: number;
@@ -56,9 +62,18 @@ const workoutLogSchema = new Schema<workoutLogDocument>(
               },
             },
             repetitions: { type: Number, default: 0 },
-            formVideoSize: {
-              type: Number,
-              min: [0, "File size cannot be negative"],
+            formVideo: {
+              size: {
+                type: Number,
+                min: [0, "File size cannot be negative"],
+              },
+              extension: {
+                type: String,
+                enum: {
+                  values: validFileExtensions,
+                  message: "Valid extensions are 'mov', 'mp4' and 'avi'",
+                },
+              },
             },
           },
         ],

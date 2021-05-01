@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { ResponseError, ResponseMessage } from "../../@types";
 import { userDocument } from "../models/user";
 import {
+  videoFileExtension,
   WorkoutLog,
   workoutLogDocument,
   workoutLogHeaderData,
@@ -73,8 +74,11 @@ export async function videoUpload(req: Request, res: Response): Promise<void> {
     const fileParts: string[] = file.originalname.split(".");
     const exerciseIndex = Number(fileParts[0]);
     const setIndex = Number(fileParts[1]);
-    workoutLog.exercises[exerciseIndex].sets[setIndex].formVideoSize =
-      file.size;
+    const fileExtension = fileParts[2];
+    workoutLog.exercises[exerciseIndex].sets[setIndex].formVideo = {
+      size: file.size,
+      extension: fileExtension as videoFileExtension,
+    };
   }
   await workoutLog.save();
   res.json();
@@ -90,12 +94,15 @@ export async function videoDownload(
   if (
     !workoutLog.isValidExerciseIndex(exerciseIndex) ||
     !workoutLog.isValidSetIndex(setIndex, exerciseIndex) ||
-    !workoutLog.exercises[exerciseIndex].sets[setIndex].formVideoSize
+    !workoutLog.exercises[exerciseIndex].sets[setIndex].formVideo
   ) {
     res.status(404).json();
     return;
   }
-  const videoKey: string = `${req.currentUser?.id}/${workoutLog.id}/${exerciseIndex}.${setIndex}.mov`;
+  const fileExtension: videoFileExtension | undefined =
+    workoutLog.exercises[exerciseIndex].sets[setIndex].formVideo?.extension;
+  const videoKey: string = `${req.currentUser?.id}/${workoutLog.id}/${exerciseIndex}.${setIndex}.${fileExtension}`;
+
   const src: ReadStream = new ReadStream(S3, {
     Bucket: WLOGGER_BUCKET,
     Key: videoKey,
