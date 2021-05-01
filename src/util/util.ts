@@ -1,3 +1,5 @@
+import { validFileExtensions, videoFileExtension } from "../models/workoutLog";
+
 export const millisecondsInDay: number = 1000 * 60 * 60 * 24;
 export const millisecondsInWeek: number = 1000 * 60 * 60 * 24 * 7;
 
@@ -28,8 +30,6 @@ export function isValidFileType(fileType: string): boolean {
   return !validFileTypes.includes(fileType as videoFileMimeType);
 }
 
-type videoFileExtension = "mov" | "avi" | "mp4";
 export function isValidFileExtension(extension: string): boolean {
-  const validFileExtensions: videoFileExtension[] = ["avi", "mov", "mp4"];
   return !validFileExtensions.includes(extension as videoFileExtension);
 }
