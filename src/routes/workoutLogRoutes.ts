@@ -21,7 +21,7 @@ workoutLogRoutes.delete(
 );
 
 workoutLogRoutes.get(
-  "/:id/:exerciseIndex/:setIndex/videoDownload",
+  "/:id/:exerciseIndex/:setIndex/stream",
   validateWorkoutLogId,
   setCurrentWorkoutLog,
   workoutLogsController.videoDownload
