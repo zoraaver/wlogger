@@ -1,7 +1,11 @@
 import { ObjectID } from "bson";
 import { Document, Schema } from "mongoose";
 import { millisecondsInDay, millisecondsInWeek } from "../util/util";
-import { loggedExercise, WorkoutLog, workoutLogDocument } from "./workoutLog";
+import {
+  loggedExerciseDocument,
+  WorkoutLog,
+  workoutLogDocument,
+} from "./workoutLog";
 
 export type Day =
   | "Monday"
@@ -133,7 +137,7 @@ workoutSchema.methods.applyIncrements = async function (
   if (workoutLogsOneWeekAgo.length > 0) {
     const lastLog: workoutLogDocument =
       workoutLogsOneWeekAgo[workoutLogsOneWeekAgo.length - 1];
-    lastLog.exercises.forEach((loggedExercise: loggedExercise) => {
+    lastLog.exercises.forEach((loggedExercise: loggedExerciseDocument) => {
       this.exercises.forEach((exercise) => {
         if (
           !exercise.autoIncrement ||
@@ -175,7 +179,7 @@ workoutSchema.methods.findMatchingWorkoutLogsOneWeekAgo = async function (
 
 function lastLogReachedWorkoutGoal(
   exercise: workoutExercise,
-  loggedExercise: loggedExercise
+  loggedExercise: loggedExerciseDocument
 ): boolean {
   if (loggedExercise.sets.length < exercise.sets) return false;
   for (const loggedSet of loggedExercise.sets) {
