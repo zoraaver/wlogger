@@ -1,16 +1,27 @@
 import { ObjectID } from "bson";
 import { Document, model, Schema } from "mongoose";
+import { S3 } from "../config/aws";
 import { weightUnit, workoutDocument } from "./workout";
+import { WLOGGER_BUCKET } from "../../keys.json";
 
 export type workoutLog = {
   createdAt: Date;
   updatedAt: Date;
   workoutId: workoutDocument["_id"];
-  exercises: Array<loggedExercise>;
+  exercises: Array<loggedExerciseDocument>;
   calculateSetNumber: () => number;
   generateWorkoutLogHeaderData: () => workoutLogHeaderData;
-  isValidSetIndex: (setIndex: number, exerciseIndex: number) => boolean;
-  isValidExerciseIndex: (exerciseIndex: number) => boolean;
+  deleteSetVideo: (
+    exerciseId: string,
+    setId: string,
+    userId: string
+  ) => Promise<boolean>;
+  deleteAllSetVideos: (userId: string) => Promise<void>;
+  findSet: (exercseId: string, setId: string) => loggedSet | undefined;
+  generateSetVideoDisplayFileName: (
+    exerciseId: string,
+    setId: string
+  ) => string | undefined;
 };
 
 export type workoutLogDocument = Document & workoutLog;
@@ -25,20 +36,24 @@ export interface workoutLogHeaderData {
   _id: string;
 }
 
-export interface loggedExercise {
+type loggedExercise = {
   name: string;
   exerciseId?: ObjectID;
-  sets: Array<{
-    weight: number;
-    formVideo?: {
-      size: number;
-      extension: videoFileExtension;
-    };
-    unit: weightUnit;
-    repetitions: number;
-    restInterval: number;
-  }>;
-}
+  sets: Array<loggedSet & Document>;
+};
+
+export type loggedExerciseDocument = loggedExercise & Document;
+
+export type loggedSet = {
+  weight: number;
+  formVideo?: {
+    size: number;
+    extension: videoFileExtension;
+  };
+  unit: weightUnit;
+  repetitions: number;
+  restInterval: number;
+};
 
 const weightUnits: weightUnit[] = ["kg", "lb"];
 
@@ -92,25 +107,32 @@ workoutLogSchema.methods.generateWorkoutLogHeaderData = function (): workoutLogH
   };
 };
 
-workoutLogSchema.methods.isValidSetIndex = function isValidSetIndex(
-  setIndex: number,
-  exerciseIndex: number
-): boolean {
-  return (
-    Number.isInteger(setIndex) &&
-    setIndex >= 0 &&
-    setIndex <= this.exercises[exerciseIndex].sets.length
-  );
+workoutLogSchema.methods.deleteSetVideo = async function (
+  exerciseId: string,
+  setId: string,
+  userId: string
+): Promise<boolean> {
+  const set: loggedSet | undefined = this.findSet(exerciseId, setId);
+  if (!set || !set.formVideo) return false;
+  const videoKey = `${userId}/${this.id}/${exerciseId}.${setId}.${set.formVideo.extension}`;
+  const result = await S3.deleteObject({
+    Bucket: WLOGGER_BUCKET,
+    Key: videoKey,
+  }).promise();
+  if (!result.$response.error) {
+    set.formVideo = undefined;
+    await this.save();
+  }
+  return true;
 };
 
-workoutLogSchema.methods.isValidExerciseIndex = function (
-  exerciseIndex: number
-): boolean {
-  return (
-    Number.isInteger(exerciseIndex) &&
-    exerciseIndex >= 0 &&
-    exerciseIndex < this.exercises.length
-  );
+workoutLogSchema.methods.findSet = function (
+  exerciseId: string,
+  setId: string
+): loggedSet | undefined {
+  return this.exercises
+    .find((exercise) => exercise.id === exerciseId)
+    ?.sets.find((set) => set.id === setId);
 };
 
 workoutLogSchema.methods.calculateSetNumber = function (): number {
@@ -118,6 +140,40 @@ workoutLogSchema.methods.calculateSetNumber = function (): number {
     (total: number, curr: loggedExercise) => total + curr.sets.length,
     0
   );
+};
+
+workoutLogSchema.methods.deleteAllSetVideos = async function (
+  userId: string
+): Promise<void> {
+  const videoObjectsToDelete: { Key: string }[] = [];
+  for (const exercise of this.exercises) {
+    for (const set of exercise.sets) {
+      if (!set.formVideo?.extension) continue;
+      const videoKey: string = `${userId}/${this.id}/${exercise.id}.${set.id}.${set.formVideo.extension}`;
+      videoObjectsToDelete.push({ Key: videoKey });
+    }
+  }
+  if (videoObjectsToDelete.length > 0) {
+    await S3.deleteObjects({
+      Bucket: WLOGGER_BUCKET,
+      Delete: { Quiet: true, Objects: videoObjectsToDelete },
+    }).promise();
+  }
+};
+
+workoutLogSchema.methods.generateSetVideoDisplayFileName = function (
+  exerciseId: string,
+  setId: string
+) {
+  const exercise: loggedExerciseDocument | undefined = this.exercises.find(
+    (exercise) => exercise.id === exerciseId
+  );
+  const set: loggedSet | undefined = exercise?.sets.find(
+    (set) => set.id === setId
+  );
+  return `${this.createdAt.toDateString()}: ${exercise?.name}, ${
+    set?.repetitions
+  } x ${set?.weight} ${set?.unit}.${set?.formVideo?.extension}`;
 };
 
 export const WorkoutLog = model<workoutLogDocument>(
