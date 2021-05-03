@@ -5,7 +5,11 @@ import { ResponseMessage } from "../../@types";
 import multer from "multer";
 import multerS3 from "multer-s3";
 import { WLOGGER_BUCKET } from "../../keys.json";
-import { WorkoutLog, workoutLogDocument } from "../models/workoutLog";
+import {
+  loggedSet,
+  WorkoutLog,
+  workoutLogDocument,
+} from "../models/workoutLog";
 import { S3 } from "../config/aws";
 import { isValidFileType, isValidFileExtension } from "../util/util";
 
@@ -35,7 +39,7 @@ export async function setCurrentWorkoutLog(
   next();
 }
 
-// expect file in format {exerciseIndex}.{setIndex}.{mov|mp4|avi}
+// expect file in format {exerciseId}.{setId}.{mov|mp4|avi}
 function workoutLogVideoFilter(
   req: Request,
   file: Express.Multer.File,
@@ -44,18 +48,18 @@ function workoutLogVideoFilter(
   const workoutLog = req.currentWorkoutLog as workoutLogDocument;
   const fileParts: string[] = file.originalname.split(".");
 
-  if (fileParts.length !== 3 || isValidFileType(file.mimetype)) {
+  if (fileParts.length !== 3 || !isValidFileType(file.mimetype)) {
     callback(null, false);
   } else {
-    const exerciseIndex = Number(fileParts[0]);
-    const setIndex = Number(fileParts[1]);
+    const exerciseId = fileParts[0];
+    const setId = fileParts[1];
     const fileExtension = fileParts[2];
 
-    if (
-      !workoutLog.isValidExerciseIndex(exerciseIndex) ||
-      !workoutLog.isValidSetIndex(setIndex, exerciseIndex) ||
-      isValidFileExtension(fileExtension)
-    ) {
+    const set: loggedSet | undefined = workoutLog.exercises
+      .find((exercise) => exercise.id === exerciseId)
+      ?.sets.find((set) => set.id === setId);
+
+    if (!set || !isValidFileExtension(fileExtension)) {
       callback(null, false);
     } else {
       callback(null, true);
@@ -79,6 +83,7 @@ export const S3WorkoutLogVideoUpload = multer({
     bucket: WLOGGER_BUCKET,
     key: setWorkoutLogFileKey,
     serverSideEncryption: "AES256",
+    contentType: multerS3.AUTO_CONTENT_TYPE,
   }),
   limits: { fileSize: 50 * megaByte },
   fileFilter: workoutLogVideoFilter,
