@@ -27,9 +27,9 @@ export function isValidFileType(fileType: string): boolean {
     "video/mp4",
     "video/x-msvideo",
   ];
-  return !validFileTypes.includes(fileType as videoFileMimeType);
+  return validFileTypes.includes(fileType as videoFileMimeType);
 }
 
 export function isValidFileExtension(extension: string): boolean {
-  return !validFileExtensions.includes(extension as videoFileExtension);
+  return validFileExtensions.includes(extension as videoFileExtension);
 }
