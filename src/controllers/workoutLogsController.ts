@@ -92,16 +92,22 @@ export async function showSetVideo(
     (set) => set.id === setId
   );
 
+  if (!set || !set.formVideoExtension) {
+    res.status(404).json();
+    return;
+  }
+
   const fileSize: number = await workoutLog.getVideoFileSize(
     req.currentUser?.id,
     exercise?.id,
     set
   );
 
-  if (!set || !set.formVideoExtension || fileSize === 0) {
+  if (fileSize === 0) {
     res.status(404).json();
     return;
   }
+
   const fileExtension: videoFileExtension | undefined = set.formVideoExtension;
   const displayFileName = workoutLog.generateSetVideoDisplayFileName(
     exerciseId,
