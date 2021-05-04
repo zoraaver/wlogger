@@ -3,6 +3,8 @@ import { Document, model, Schema } from "mongoose";
 import { S3 } from "../config/aws";
 import { weightUnit, workoutDocument } from "./workout";
 import { WLOGGER_BUCKET } from "../../keys.json";
+import { PresignedPost } from "aws-sdk/clients/s3";
+import { megaByte } from "../util/util";
 
 export type workoutLog = {
   createdAt: Date;
@@ -22,6 +24,12 @@ export type workoutLog = {
     exerciseId: string,
     setId: string
   ) => string | undefined;
+  getVideoFileSize: (
+    userId?: string,
+    exerciseId?: string,
+    set?: loggedSetDocument
+  ) => Promise<number>;
+  generateSignedUrls: (userId: string) => PresignedPost[];
 };
 
 export type workoutLogDocument = Document & workoutLog;
@@ -39,21 +47,20 @@ export interface workoutLogHeaderData {
 type loggedExercise = {
   name: string;
   exerciseId?: ObjectID;
-  sets: Array<loggedSet & Document>;
+  sets: Array<loggedSetDocument>;
 };
 
 export type loggedExerciseDocument = loggedExercise & Document;
 
 export type loggedSet = {
   weight: number;
-  formVideo?: {
-    size: number;
-    extension: videoFileExtension;
-  };
+  formVideoExtension?: videoFileExtension;
   unit: weightUnit;
   repetitions: number;
   restInterval: number;
 };
+
+export type loggedSetDocument = loggedSet & Document;
 
 const weightUnits: weightUnit[] = ["kg", "lb"];
 
@@ -77,17 +84,11 @@ const workoutLogSchema = new Schema<workoutLogDocument>(
               },
             },
             repetitions: { type: Number, default: 0 },
-            formVideo: {
-              size: {
-                type: Number,
-                min: [0, "File size cannot be negative"],
-              },
-              extension: {
-                type: String,
-                enum: {
-                  values: validFileExtensions,
-                  message: "Valid extensions are 'mov', 'mp4' and 'avi'",
-                },
+            formVideoExtension: {
+              type: String,
+              enum: {
+                values: validFileExtensions,
+                message: "Valid extensions are 'mov', 'mp4' and 'avi'",
               },
             },
           },
@@ -113,14 +114,14 @@ workoutLogSchema.methods.deleteSetVideo = async function (
   userId: string
 ): Promise<boolean> {
   const set: loggedSet | undefined = this.findSet(exerciseId, setId);
-  if (!set || !set.formVideo) return false;
-  const videoKey = `${userId}/${this.id}/${exerciseId}.${setId}.${set.formVideo.extension}`;
+  if (!set || !set.formVideoExtension) return false;
+  const videoKey = `${userId}/${this.id}/${exerciseId}.${setId}.${set.formVideoExtension}`;
   const result = await S3.deleteObject({
     Bucket: WLOGGER_BUCKET,
     Key: videoKey,
   }).promise();
   if (!result.$response.error) {
-    set.formVideo = undefined;
+    set.formVideoExtension = undefined;
     await this.save();
   }
   return true;
@@ -148,8 +149,8 @@ workoutLogSchema.methods.deleteAllSetVideos = async function (
   const videoObjectsToDelete: { Key: string }[] = [];
   for (const exercise of this.exercises) {
     for (const set of exercise.sets) {
-      if (!set.formVideo?.extension) continue;
-      const videoKey: string = `${userId}/${this.id}/${exercise.id}.${set.id}.${set.formVideo.extension}`;
+      if (!set.formVideoExtension) continue;
+      const videoKey: string = `${userId}/${this.id}/${exercise.id}.${set.id}.${set.formVideoExtension}`;
       videoObjectsToDelete.push({ Key: videoKey });
     }
   }
@@ -173,8 +174,68 @@ workoutLogSchema.methods.generateSetVideoDisplayFileName = function (
   );
   return `${this.createdAt.toDateString()}: ${exercise?.name}, ${
     set?.repetitions
-  } x ${set?.weight} ${set?.unit}.${set?.formVideo?.extension}`;
+  } x ${set?.weight} ${set?.unit}.${set?.formVideoExtension}`;
 };
+
+workoutLogSchema.methods.getVideoFileSize = async function (
+  userId?: string,
+  exerciseId?: string,
+  set?: loggedSetDocument
+): Promise<number> {
+  if (!set || !userId || !exerciseId) return 0;
+  const videoKey: string = `${userId}/${this.id}/${exerciseId}.${set.id}`;
+  const result = await S3.listObjectsV2({
+    Bucket: WLOGGER_BUCKET,
+    Prefix: videoKey,
+  }).promise();
+  if (result.$response.data) {
+    const fileSize: number | undefined =
+      result.$response.data.Contents?.[0]?.Size;
+    return fileSize === undefined ? 0 : fileSize;
+  }
+  return 0;
+};
+
+workoutLogSchema.methods.generateSignedUrls = function (
+  userId: string
+): PresignedPost[] {
+  const preSignedPosts: PresignedPost[] = [];
+  const videoLimit: number = 5;
+
+  for (const exercise of this.exercises) {
+    let videoLimitReached: boolean = false;
+    for (const set of exercise.sets) {
+      if (!set.formVideoExtension) continue;
+      const videoKey: string = `${userId}/${this.id}/${exercise.id}.${set.id}.${set.formVideoExtension}`;
+      const preSignedPost: PresignedPost = createSignedPostForWorkoutLogVideo(
+        videoKey,
+        50 * megaByte
+      );
+      preSignedPosts.push(preSignedPost);
+      if (preSignedPosts.length >= videoLimit) {
+        videoLimitReached = true;
+        break;
+      }
+    }
+    if (videoLimitReached) break;
+  }
+  return preSignedPosts;
+};
+
+function createSignedPostForWorkoutLogVideo(
+  key: string,
+  fileSizeLimit: number
+): PresignedPost {
+  return S3.createPresignedPost({
+    Bucket: WLOGGER_BUCKET,
+    Expires: 600,
+    Conditions: [
+      ["starts-with", "$Content-Type", "video/"],
+      ["content-length-range", 0, fileSizeLimit],
+    ],
+    Fields: { key },
+  });
+}
 
 export const WorkoutLog = model<workoutLogDocument>(
   "WorkoutLog",
