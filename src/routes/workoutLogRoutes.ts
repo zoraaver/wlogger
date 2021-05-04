@@ -1,20 +1,9 @@
 import { Router } from "express";
-import {
-  S3WorkoutLogVideoUpload,
-  setCurrentWorkoutLog,
-} from "../middleware/workoutLog";
+import { setCurrentWorkoutLog } from "../middleware/workoutLog";
 import * as workoutLogsController from "../controllers/workoutLogsController";
 import { validateWorkoutLogId } from "../middleware/workoutLog";
 
 export const workoutLogRoutes: Router = Router();
-
-workoutLogRoutes.post(
-  "/:id/videoUpload",
-  validateWorkoutLogId,
-  setCurrentWorkoutLog,
-  S3WorkoutLogVideoUpload.array("formVideos", 5),
-  workoutLogsController.uploadSetVideo
-);
 
 workoutLogRoutes.post("/", workoutLogsController.create);
 
