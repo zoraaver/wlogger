@@ -1,8 +1,9 @@
-import { Request, Response, NextFunction } from "express";
-import { ResponseError, ResponseMessage } from "../../@types";
+import { Request, Response } from "express";
+import { ResponseMessage } from "../../@types";
 import { userDocument } from "../models/user";
 import {
-  loggedSet,
+  loggedExerciseDocument,
+  loggedSetDocument,
   videoFileExtension,
   WorkoutLog,
   workoutLogDocument,
@@ -11,17 +12,20 @@ import {
 import { S3 } from "../config/aws";
 import { WLOGGER_BUCKET } from "../../keys.json";
 import { pipeline } from "stream";
+import { PresignedPost } from "aws-sdk/clients/s3";
 
-export async function create(
-  req: Request,
-  res: Response<workoutLogDocument | ResponseError>
-): Promise<void> {
+export async function create(req: Request, res: Response): Promise<void> {
   try {
     const workoutLog: workoutLogDocument = await WorkoutLog.create(req.body);
     const user = req.currentUser as userDocument;
     user.workoutLogs.unshift(workoutLog._id);
     await user.save();
-    res.status(201).json(workoutLog);
+    const signedPostUrls: PresignedPost[] = workoutLog.generateSignedUrls(
+      req.currentUser?.id
+    );
+    res
+      .status(201)
+      .json({ ...workoutLog.toObject(), uploadUrls: signedPostUrls });
   } catch (error) {
     const [, field, message]: string[] = error.message.split(": ");
     res.status(406).json({ field, error: message });
@@ -73,57 +77,57 @@ export async function destroy(
   res.json(workoutLogToDelete.id);
 }
 
-export async function uploadSetVideo(
-  req: Request,
+export async function showSetVideo(
+  req: Request<{ setId: string; exerciseId: string; id: string }>,
   res: Response
 ): Promise<void> {
   const workoutLog = req.currentWorkoutLog as workoutLogDocument;
-  for (let i = 0; i < req.files.length; ++i) {
-    const file: Express.Multer.File = (req.files as Express.Multer.File[])[i];
-    const fileParts: string[] = file.originalname.split(".");
-    const [exerciseId, setId, fileExtension] = fileParts;
-    const set = workoutLog.exercises
-      .find((exercise) => exercise.id === exerciseId)
-      ?.sets.find((set) => set.id === setId) as loggedSet;
-    set.formVideo = {
-      size: file.size,
-      extension: fileExtension as videoFileExtension,
-    };
-  }
-  await workoutLog.save();
-  res.json();
-}
-
-export async function showSetVideo(
-  req: Request<{ setId: string; exerciseId: string; id: string }>,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
-  const workoutLog = req.currentWorkoutLog as workoutLogDocument;
   const { setId, exerciseId } = req.params;
-  const set: loggedSet | undefined = workoutLog.findSet(exerciseId, setId);
-  if (!set || !set.formVideo) {
+  const exercise:
+    | loggedExerciseDocument
+    | undefined = workoutLog.exercises.find(
+    (exercise) => exercise.id === exerciseId
+  );
+  const set: loggedSetDocument | undefined = exercise?.sets.find(
+    (set) => set.id === setId
+  );
+
+  const fileSize: number = await workoutLog.getVideoFileSize(
+    req.currentUser?.id,
+    exercise?.id,
+    set
+  );
+
+  if (!set || !set.formVideoExtension || fileSize === 0) {
     res.status(404).json();
     return;
   }
-  const fileExtension: videoFileExtension | undefined = set.formVideo.extension;
+  const fileExtension: videoFileExtension | undefined = set.formVideoExtension;
   const displayFileName = workoutLog.generateSetVideoDisplayFileName(
     exerciseId,
     setId
   );
+
   res.attachment(displayFileName);
   res.contentType(fileExtension);
   if (req.headers.range)
-    writeVideoStreamHeaders(res, set.formVideo.size, req.headers.range);
+    writeVideoStreamHeaders(res, fileSize, req.headers.range);
 
   const videoKey: string = `${req.currentUser?.id}/${workoutLog.id}/${exerciseId}.${setId}.${fileExtension}`;
-  const src = S3.getObject({
+
+  pipeline(
+    createS3VideoStream(videoKey, req.headers.range),
+    res,
+    (err: NodeJS.ErrnoException | null) => {}
+  );
+}
+
+function createS3VideoStream(videoKey: string, range?: string) {
+  return S3.getObject({
     Bucket: WLOGGER_BUCKET,
     Key: videoKey,
-    Range: req.headers.range,
+    Range: range,
   }).createReadStream();
-
-  pipeline(src, res, (err: NodeJS.ErrnoException | null) => {});
 }
 
 function writeVideoStreamHeaders(
