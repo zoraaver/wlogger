@@ -7,6 +7,7 @@ import bcrypt from "bcryptjs";
 import sgMail from "@sendgrid/mail";
 
 jest.mock("@sendgrid/mail");
+jest.mock("aws-sdk");
 (sgMail.send as any).mockResolvedValue({});
 
 beforeAll(async () => {

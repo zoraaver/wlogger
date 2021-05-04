@@ -10,6 +10,8 @@ import {
   JWT_EMAIL_VERIFICATION_SECRET,
 } from "../keys.json";
 
+jest.mock("aws-sdk");
+
 type loginData = { email: string; password?: string };
 
 const validLoginData: loginData = {

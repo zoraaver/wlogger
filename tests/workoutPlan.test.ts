@@ -17,6 +17,7 @@ import { WorkoutLog } from "../src/models/workoutLog";
 let user: userDocument;
 const userData = { email: "test@test.com", password: "password" };
 
+jest.mock("aws-sdk");
 jest.mock("../src/middleware/auth", () => ({
   setCurrentUser: jest
     .fn()
