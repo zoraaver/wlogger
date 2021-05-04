@@ -531,12 +531,13 @@ describe("GET /workoutLogs/:id/exercises/:exerciseId/sets/:setId/video", () => {
       .buffer(true)
       .parse(parseResponseBody)
       .then((res: Response) => {
+        const fileSize = videoFileSize.toString();
         expect(res.status).toBe(206);
         expect(res.headers["content-disposition"]).toBe("inline");
         expect(res.headers["accept-ranges"]).toBe("bytes");
-        expect(res.headers["content-length"]).toBe("15");
+        expect(res.headers["content-length"]).toBe(fileSize);
         expect(res.headers["content-range"]).toBe(
-          `bytes 1-15/${videoFileSize.toString()}`
+          `bytes 1-${fileSize}/${fileSize}`
         );
         expect(res.body).toBe(videoFileContent.toString());
         done();
