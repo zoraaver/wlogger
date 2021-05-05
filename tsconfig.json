@@ -25,5 +25,5 @@
     "forceConsistentCasingInFileNames": true
   },
   "compileOnSave": true,
-  "include": ["src/**/*", "@types/**/*", "./keys.json"]
+  "include": ["src/**/*", "@types/**/*"]
 }

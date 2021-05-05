@@ -1,10 +1,7 @@
 import { Request, Response } from "express";
 import { userDocument, User } from "../models/user";
 import { LoginTicket, OAuth2Client, TokenPayload } from "google-auth-library";
-import {
-  GOOGLE_CLIENT_ID,
-  JWT_EMAIL_VERIFICATION_SECRET,
-} from "../../keys.json";
+import { GOOGLE_CLIENT_ID, JWT_EMAIL_VERIFICATION_SECRET } from "../config/env";
 import jwt from "jsonwebtoken";
 
 export async function login(req: Request, res: Response): Promise<void> {

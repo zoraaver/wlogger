@@ -8,7 +8,7 @@ import {
   JWT_SECRET,
   GOOGLE_CLIENT_ID,
   JWT_EMAIL_VERIFICATION_SECRET,
-} from "../keys.json";
+} from "../src/config/env";
 
 jest.mock("aws-sdk");
 

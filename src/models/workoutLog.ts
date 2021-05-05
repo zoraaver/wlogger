@@ -2,7 +2,7 @@ import { ObjectID } from "bson";
 import { Document, model, Schema } from "mongoose";
 import { S3 } from "../config/aws";
 import { weightUnit, workoutDocument } from "./workout";
-import { WLOGGER_BUCKET } from "../../keys.json";
+import { WLOGGER_BUCKET } from "../config/env";
 import { PresignedPost } from "aws-sdk/clients/s3";
 import { megaByte } from "../util/util";
 

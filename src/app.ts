@@ -8,7 +8,7 @@ import { userRoutes } from "./routes/userRoutes";
 import { workoutPlanRoutes } from "./routes/workoutPlanRoutes";
 import { loggedIn, setCurrentUser } from "./middleware/auth";
 import { workoutLogRoutes } from "./routes/workoutLogRoutes";
-import { CLIENT_PRODUCTION_URL, CLIENT_DEVELOPMENT_URL } from "../keys.json";
+import { CLIENT_PRODUCTION_URL, CLIENT_DEVELOPMENT_URL } from "./config/env";
 
 export const app: Application = express();
 

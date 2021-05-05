@@ -1,6 +1,6 @@
 import jwt from "jsonwebtoken";
 import { Request, Response, NextFunction } from "express";
-import { JWT_SECRET } from "../../keys.json";
+import { JWT_SECRET } from "../config/env";
 import { User } from "../models/user";
 
 export async function setCurrentUser(

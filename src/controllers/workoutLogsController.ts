@@ -10,7 +10,7 @@ import {
   workoutLogHeaderData,
 } from "../models/workoutLog";
 import { S3 } from "../config/aws";
-import { WLOGGER_BUCKET } from "../../keys.json";
+import { WLOGGER_BUCKET } from "../config/env";
 import { pipeline } from "stream";
 import { PresignedPost } from "aws-sdk/clients/s3";
 

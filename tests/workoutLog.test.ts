@@ -13,7 +13,7 @@ import { workoutLogHeaderData } from "../src/models/workoutLog";
 import { NextFunction } from "express";
 import { ObjectID } from "mongodb";
 import { PresignedPost } from "aws-sdk/clients/s3";
-import { WLOGGER_BUCKET } from "../keys.json";
+import { WLOGGER_BUCKET } from "../src/config/env";
 import { megaByte } from "../src/util/util";
 import { createReadStream, statSync, readFileSync } from "fs";
 import * as path from "path";

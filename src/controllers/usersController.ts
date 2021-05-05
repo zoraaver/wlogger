@@ -4,7 +4,7 @@ import {
   SENDGRID_KEY,
   CLIENT_PRODUCTION_URL,
   VERIFICATION_EMAIL_TEMPLATE_ID,
-} from "../../keys.json";
+} from "../config/env";
 import { userDocument, User } from "../models/user";
 
 sgMail.setApiKey(SENDGRID_KEY);

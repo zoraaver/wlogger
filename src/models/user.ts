@@ -2,7 +2,7 @@ import { Schema, model, Document } from "mongoose";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import validator from "validator";
-import { JWT_SECRET, JWT_EMAIL_VERIFICATION_SECRET } from "../../keys.json";
+import { JWT_SECRET, JWT_EMAIL_VERIFICATION_SECRET } from "../config/env";
 import { workoutPlanDocument } from "./workoutPlan";
 import { workoutLogDocument } from "./workoutLog";
 

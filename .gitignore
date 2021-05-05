@@ -2,7 +2,7 @@
 node_modules
 
 # secrets
-keys.json
+.env
 
 # built js files
 dist
