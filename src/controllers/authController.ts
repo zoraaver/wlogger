@@ -120,5 +120,9 @@ export async function logout(req: Request, res: Response): Promise<void> {
 }
 
 function setCookieToken(res: Response, token: string) {
-  res.cookie("token", token, { httpOnly: true, secure: true });
+  res.cookie("token", token, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "strict",
+  });
 }
