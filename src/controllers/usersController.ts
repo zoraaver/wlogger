@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import sgMail from "@sendgrid/mail";
 import {
   SENDGRID_KEY,
-  CLIENT_PRODUCTION_URL,
+  CLIENT_URL,
   VERIFICATION_EMAIL_TEMPLATE_ID,
 } from "../config/env";
 import { userDocument, User } from "../models/user";
@@ -40,7 +40,7 @@ async function sendVerificationEmail(
   email: string,
   token: string
 ): Promise<void> {
-  const verifyLink: string = `${CLIENT_PRODUCTION_URL}/verify/${token}`;
+  const verifyLink: string = `${CLIENT_URL}/verify/${token}`;
   try {
     await sgMail.send({
       from: { email: "app@wlogger.uk", name: "wLogger" },

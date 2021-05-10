@@ -8,7 +8,7 @@ import { userRoutes } from "./routes/userRoutes";
 import { workoutPlanRoutes } from "./routes/workoutPlanRoutes";
 import { loggedIn, setCurrentUser } from "./middleware/auth";
 import { workoutLogRoutes } from "./routes/workoutLogRoutes";
-import { CLIENT_PRODUCTION_URL, CLIENT_DEVELOPMENT_URL } from "./config/env";
+import { CLIENT_URL } from "./config/env";
 
 export const app: Application = express();
 
@@ -18,7 +18,7 @@ app.use(helmet());
 
 switch (process.env.NODE_ENV) {
   case "production":
-    app.use(cors({ credentials: true, origin: CLIENT_PRODUCTION_URL }));
+    app.use(cors({ credentials: true, origin: CLIENT_URL }));
     break;
   case "test":
     app.use(cors());
@@ -26,7 +26,7 @@ switch (process.env.NODE_ENV) {
   case "development":
   default:
     app.use(morgan("dev"));
-    app.use(cors({ credentials: true, origin: CLIENT_DEVELOPMENT_URL }));
+    app.use(cors({ credentials: true, origin: CLIENT_URL }));
 }
 
 app.use(setCurrentUser);
