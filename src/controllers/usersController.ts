@@ -13,7 +13,9 @@ export async function create(req: Request, res: Response): Promise<void> {
   const { email, password, confirmPassword } = req.body;
 
   try {
-    let user: userDocument | null = await User.findOne({ email });
+    let user: userDocument | null = await User.findOne({
+      email: email?.toLowerCase(),
+    });
     if (user) {
       throw new Error(
         "Email validation error: email: Email has already been taken"

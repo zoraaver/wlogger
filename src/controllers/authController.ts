@@ -8,7 +8,7 @@ export async function login(req: Request, res: Response): Promise<void> {
   const { email, password } = req.body;
 
   const user: userDocument | null = await User.findOne(
-    { email },
+    { email: email?.toLowerCase() },
     "email password googleId confirmed"
   );
   // if the user has already signed up via google

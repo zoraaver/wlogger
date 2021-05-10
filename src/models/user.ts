@@ -55,6 +55,12 @@ async function hashDbPassword(this: userDocument): Promise<void> {
 // store hashed passwords in db
 userSchema.pre("save", hashDbPassword);
 
+userSchema.pre("save", function () {
+  if (this.isModified("email")) {
+    this.email = this.email.toLowerCase();
+  }
+});
+
 // convenience attribute on User model to get a JWT for the user
 userSchema.virtual("token").get(function (this: userDocument): string {
   if (!this._id) throw new Error("_id for user has not yet been created");
