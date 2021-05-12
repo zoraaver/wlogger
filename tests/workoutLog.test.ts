@@ -15,8 +15,7 @@ import { ObjectID } from "mongodb";
 import { PresignedPost } from "aws-sdk/clients/s3";
 import { WLOGGER_BUCKET } from "../src/config/env";
 import { megaByte } from "../src/util/util";
-import { createReadStream, statSync, readFileSync } from "fs";
-import * as path from "path";
+import { Readable } from "stream";
 
 let user: userDocument;
 const userData = { email: "test@test.com", password: "password" };
@@ -38,9 +37,9 @@ type loggedExercise = {
 };
 
 // read video file before tests
-const videoPath: string = path.resolve(__dirname, "testVideos", "test.mov");
-const videoFileSize: number = statSync(videoPath).size;
-const videoFileContent: Buffer = readFileSync(videoPath);
+const videoFile: string = "This is a pretend video file.";
+const videoFileSize: number = videoFile.length;
+const videoFileContent: Buffer = Buffer.from(videoFile, "utf-8");
 
 // mock aws methods
 const deleteObjectsArguments: AWS.S3.DeleteObjectsRequest[] = [];
@@ -59,9 +58,7 @@ jest.mock("aws-sdk", () => ({
         getObjectArguments.push(params);
         return {
           createReadStream: () => {
-            return createReadStream(
-              path.resolve(__dirname, "testVideos", "test.mov")
-            );
+            return Readable.from([videoFile]);
           },
         };
       },
@@ -269,21 +266,24 @@ describe("POST /workoutLogs", () => {
     });
 
     it("should default the weight of an exercise to 0 if none is given", async () => {
-      workoutLogData.exercises[0].sets[0].weight = (undefined as unknown) as number;
+      workoutLogData.exercises[0].sets[0].weight =
+        undefined as unknown as number;
       await postWorkoutLog(workoutLogData);
       const workoutLog: workoutLogDocument | null = await WorkoutLog.findOne();
       expect(workoutLog!.exercises[0].sets[0].weight).toBe(0);
     });
 
     it("should default the repetitions of an exercise to 0 if none is given", async () => {
-      workoutLogData.exercises[0].sets[0].repetitions = (undefined as unknown) as number;
+      workoutLogData.exercises[0].sets[0].repetitions =
+        undefined as unknown as number;
       await postWorkoutLog(workoutLogData);
       const workoutLog: workoutLogDocument | null = await WorkoutLog.findOne();
       expect(workoutLog!.exercises[0].sets[0].repetitions).toBe(0);
     });
 
     it("should default the restInterval of an exercise to 0 if none is given", async () => {
-      workoutLogData.exercises[0].sets[0].restInterval = (undefined as unknown) as number;
+      workoutLogData.exercises[0].sets[0].restInterval =
+        undefined as unknown as number;
       await postWorkoutLog(workoutLogData);
       const workoutLog: workoutLogDocument | null = await WorkoutLog.findOne();
       expect(workoutLog!.exercises[0].sets[0].restInterval).toBe(0);
@@ -312,7 +312,7 @@ describe("POST /workoutLogs", () => {
 
   describe("with invalid data", () => {
     it("should respond with a 406 if an exercise name is not given", async () => {
-      workoutLogData.exercises[0].name = (undefined as unknown) as string;
+      workoutLogData.exercises[0].name = undefined as unknown as string;
       const response: Response = await postWorkoutLog(workoutLogData);
       expect(response.status).toBe(406);
       expect(response.body.field).toBe("exercises.0.name");
@@ -320,7 +320,8 @@ describe("POST /workoutLogs", () => {
     });
 
     it("should respond with a 406 if an exercise has no unit", async () => {
-      workoutLogData.exercises[0].sets[0].unit = (undefined as unknown) as weightUnit;
+      workoutLogData.exercises[0].sets[0].unit =
+        undefined as unknown as weightUnit;
       const response: Response = await postWorkoutLog(workoutLogData);
       expect(response.status).toBe(406);
       expect(response.body.field).toBe("exercises.0.sets.0.unit");
@@ -328,7 +329,8 @@ describe("POST /workoutLogs", () => {
     });
 
     it("should respond with a 406 if an exercise has an invalid unit", async () => {
-      workoutLogData.exercises[0].sets[0].unit = ("invalid unit" as unknown) as weightUnit;
+      workoutLogData.exercises[0].sets[0].unit =
+        "invalid unit" as unknown as weightUnit;
       const response: Response = await postWorkoutLog(workoutLogData);
       expect(response.status).toBe(406);
       expect(response.body.field).toBe("exercises.0.sets.0.unit");
@@ -336,7 +338,8 @@ describe("POST /workoutLogs", () => {
     });
 
     it("should respond with a 406 if a file extension is invalid", async () => {
-      workoutLogData.exercises[0].sets[0].formVideoExtension = ("invalid extension" as unknown) as videoFileExtension;
+      workoutLogData.exercises[0].sets[0].formVideoExtension =
+        "invalid extension" as unknown as videoFileExtension;
       const response: Response = await postWorkoutLog(workoutLogData);
       expect(response.status).toBe(406);
       expect(response.body.field).toBe("exercises.0.sets.0.formVideoExtension");
@@ -409,9 +412,8 @@ describe("DELETE /workoutLogs/:id", () => {
     await postWorkoutLog(validWorkoutLogData);
     const workoutLog: workoutLogDocument | null = await WorkoutLog.findOne();
     await postWorkoutLog(validWorkoutLogData);
-    const workoutLogToDelete: workoutLogDocument | null = await WorkoutLog.findOne(
-      { _id: { $ne: workoutLog!.id } }
-    );
+    const workoutLogToDelete: workoutLogDocument | null =
+      await WorkoutLog.findOne({ _id: { $ne: workoutLog!.id } });
     await deleteWorkoutLog(workoutLogToDelete!.id);
     const user: userDocument | null = await User.findOne();
     expect(user!.workoutLogs).toHaveLength(1);
