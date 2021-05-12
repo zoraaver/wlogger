@@ -250,7 +250,6 @@ describe("POST /workoutLogs", () => {
       const response: Response = await postWorkoutLog(workoutLogData);
       expect(response.status).toBe(201);
       expect(response.body).toHaveProperty("createdAt");
-      expect(response.body).toHaveProperty("updatedAt");
       expect(response.body).toHaveProperty("exercises");
       expect(response.body.exercises).toHaveLength(2);
       expect(response.body.exercises[0]).toHaveProperty("sets");
@@ -347,20 +346,45 @@ describe("POST /workoutLogs", () => {
         "Valid extensions are 'mov', 'mp4' and 'avi'"
       );
     });
+    it("should respond with a 406 if the created at field is in the future", async () => {
+      workoutLogData.createdAt = new Date(Date.now() + 100);
+      const response: Response = await postWorkoutLog(workoutLogData);
+      expect(response.status).toBe(406);
+      expect(response.body.field).toBe("createdAt");
+      expect(response.body.error).toBe(
+        "createdAt Date cannot be in the future"
+      );
+    });
   });
 });
 
 describe("GET /workoutLogs", () => {
-  it("should return an array of workout logs for the authorised user", async () => {
-    await postWorkoutLog(validWorkoutLogData);
-    await postWorkoutLog(validWorkoutLogData);
+  it("should return a sorted (by date) array of workout logs for the authorised user", async () => {
+    const middleDate: Date = new Date("2021-04-12");
+    const lastDate: Date = new Date("2021-05-12");
+    const earliestDate: Date = new Date("2020-06-12");
+    await postWorkoutLog({
+      ...validWorkoutLogData,
+      createdAt: lastDate,
+    });
+    await postWorkoutLog({
+      ...validWorkoutLogData,
+      createdAt: earliestDate,
+    });
+    await postWorkoutLog({
+      ...validWorkoutLogData,
+      createdAt: middleDate,
+    });
     const response: Response = await request(app).get("/workoutLogs");
 
     expect(response.status).toBe(200);
     const workoutLogHeaderData: workoutLogHeaderData[] = response.body;
-    expect(workoutLogHeaderData).toHaveLength(2);
+    expect(workoutLogHeaderData).toHaveLength(3);
     expect(workoutLogHeaderData[0].setCount).toBe(6);
     expect(workoutLogHeaderData[0].exerciseCount).toBe(2);
+    expect(workoutLogHeaderData[0].createdAt).toBe(lastDate.toISOString());
+    expect(workoutLogHeaderData[1].createdAt).toBe(middleDate.toISOString());
+    expect(workoutLogHeaderData[2].createdAt).toBe(earliestDate.toISOString());
   });
 });
 
