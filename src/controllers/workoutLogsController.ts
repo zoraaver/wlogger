@@ -37,7 +37,9 @@ export async function index(
   res: Response<workoutLogHeaderData[] | ResponseMessage>
 ): Promise<void> {
   const user = req.currentUser as userDocument;
-  await user.populate("workoutLogs").execPopulate();
+  await user
+    .populate({ path: "workoutLogs", options: { sort: { createdAt: -1 } } })
+    .execPopulate();
   res.json(
     user.workoutLogs.map((workoutLog) =>
       workoutLog.generateWorkoutLogHeaderData()
@@ -62,12 +64,11 @@ export async function destroy(
 ): Promise<void> {
   const user = req.currentUser as userDocument;
   const workoutLogToDelete = req.currentWorkoutLog as workoutLogDocument;
-  const workoutLogToDeleteIndex:
-    | number
-    | undefined = user.workoutLogs.findIndex(
-    (workoutLog: workoutLogDocument) =>
-      workoutLog.toString() === workoutLogToDelete.id
-  );
+  const workoutLogToDeleteIndex: number | undefined =
+    user.workoutLogs.findIndex(
+      (workoutLog: workoutLogDocument) =>
+        workoutLog.toString() === workoutLogToDelete.id
+    );
   user.workoutLogs.splice(workoutLogToDeleteIndex, 1);
   await Promise.all([
     workoutLogToDelete.deleteAllSetVideos(user.id),
@@ -83,11 +84,8 @@ export async function showSetVideo(
 ): Promise<void> {
   const workoutLog = req.currentWorkoutLog as workoutLogDocument;
   const { setId, exerciseId } = req.params;
-  const exercise:
-    | loggedExerciseDocument
-    | undefined = workoutLog.exercises.find(
-    (exercise) => exercise.id === exerciseId
-  );
+  const exercise: loggedExerciseDocument | undefined =
+    workoutLog.exercises.find((exercise) => exercise.id === exerciseId);
   const set: loggedSetDocument | undefined = exercise?.sets.find(
     (set) => set.id === setId
   );
