@@ -9,6 +9,7 @@ import { megaByte } from "../util/util";
 export type workoutLog = {
   createdAt: Date;
   updatedAt: Date;
+  notes?: string;
   workoutId: workoutDocument["_id"];
   exercises: Array<loggedExerciseDocument>;
   calculateSetNumber: () => number;
@@ -66,6 +67,10 @@ const weightUnits: weightUnit[] = ["kg", "lb"];
 
 const workoutLogSchema = new Schema<workoutLogDocument>({
   workoutId: { type: Schema.Types.ObjectId, ref: "Workout" },
+  notes: {
+    type: String,
+    maxLength: [1000, "Notes must be a maximum of 1000 characters"],
+  },
   exercises: [
     {
       name: { type: String, required: [true, "Name is a required field"] },

@@ -152,9 +152,11 @@ export interface workoutLogData {
   workoutId?: string;
   exercises: Array<loggedExercise>;
   _id?: string;
+  notes?: string;
 }
 
 const validWorkoutLogData: workoutLogData = {
+  notes: "Some notes here!",
   exercises: [
     {
       name: "Squats",
@@ -244,6 +246,7 @@ describe("POST /workoutLogs", () => {
       expect(workoutLog!.createdAt.toDateString()).toBe(
         new Date().toDateString()
       );
+      expect(workoutLog!.notes).toBe(workoutLogData.notes);
     });
 
     it("should respond with the new workout log and a 201", async () => {
@@ -353,6 +356,15 @@ describe("POST /workoutLogs", () => {
       expect(response.body.field).toBe("createdAt");
       expect(response.body.error).toBe(
         "createdAt Date cannot be in the future"
+      );
+    });
+    it("should respond with a 406 if the notes field is over 1000 characters", async () => {
+      workoutLogData.notes = "a".repeat(1001);
+      const response: Response = await postWorkoutLog(workoutLogData);
+      expect(response.status).toBe(406);
+      expect(response.body.field).toBe("notes");
+      expect(response.body.error).toBe(
+        "Notes must be a maximum of 1000 characters"
       );
     });
   });
