@@ -64,49 +64,55 @@ export type loggedSetDocument = loggedSet & Document;
 
 const weightUnits: weightUnit[] = ["kg", "lb"];
 
-const workoutLogSchema = new Schema<workoutLogDocument>(
-  {
-    workoutId: { type: Schema.Types.ObjectId, ref: "Workout" },
-    exercises: [
-      {
-        name: { type: String, required: [true, "Name is a required field"] },
-        exerciseId: { type: Schema.Types.ObjectId },
-        sets: [
-          {
-            weight: { type: Number, default: 0 },
-            restInterval: { type: Number, default: 0 },
-            unit: {
-              type: String,
-              required: [true, "Unit is a required field"],
-              enum: {
-                values: weightUnits,
-                message: "Unit must be one of 'kg' or 'lb'",
-              },
-            },
-            repetitions: { type: Number, default: 0 },
-            formVideoExtension: {
-              type: String,
-              enum: {
-                values: validFileExtensions,
-                message: "Valid extensions are 'mov', 'mp4' and 'avi'",
-              },
+const workoutLogSchema = new Schema<workoutLogDocument>({
+  workoutId: { type: Schema.Types.ObjectId, ref: "Workout" },
+  exercises: [
+    {
+      name: { type: String, required: [true, "Name is a required field"] },
+      exerciseId: { type: Schema.Types.ObjectId },
+      sets: [
+        {
+          weight: { type: Number, default: 0 },
+          restInterval: { type: Number, default: 0 },
+          unit: {
+            type: String,
+            required: [true, "Unit is a required field"],
+            enum: {
+              values: weightUnits,
+              message: "Unit must be one of 'kg' or 'lb'",
             },
           },
-        ],
-      },
-    ],
+          repetitions: { type: Number, default: 0 },
+          formVideoExtension: {
+            type: String,
+            enum: {
+              values: validFileExtensions,
+              message: "Valid extensions are 'mov', 'mp4' and 'avi'",
+            },
+          },
+        },
+      ],
+    },
+  ],
+  createdAt: {
+    type: Date,
+    default: new Date(),
+    validate: {
+      validator: (date: Date) => date <= new Date(),
+      message: (value: string) => "createdAt Date cannot be in the future",
+    },
   },
-  { timestamps: true }
-);
+});
 
-workoutLogSchema.methods.generateWorkoutLogHeaderData = function (): workoutLogHeaderData {
-  return {
-    createdAt: this.createdAt,
-    setCount: this.calculateSetNumber(),
-    exerciseCount: this.exercises.length,
-    _id: this._id,
+workoutLogSchema.methods.generateWorkoutLogHeaderData =
+  function (): workoutLogHeaderData {
+    return {
+      createdAt: this.createdAt,
+      setCount: this.calculateSetNumber(),
+      exerciseCount: this.exercises.length,
+      _id: this._id,
+    };
   };
-};
 
 workoutLogSchema.methods.deleteSetVideo = async function (
   exerciseId: string,
