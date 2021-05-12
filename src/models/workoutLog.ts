@@ -101,7 +101,7 @@ const workoutLogSchema = new Schema<workoutLogDocument>({
   ],
   createdAt: {
     type: Date,
-    default: new Date(),
+    default: Date.now,
     validate: {
       validator: (date: Date) => date <= new Date(),
       message: (value: string) => "createdAt Date cannot be in the future",
