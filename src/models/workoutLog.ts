@@ -207,6 +207,8 @@ workoutLogSchema.methods.getVideoFileSize = async function (
   return 0;
 };
 
+const maxVideoFileSize = 100 * megaByte;
+
 workoutLogSchema.methods.generateSignedUrls = function (
   userId: string
 ): PresignedPost[] {
@@ -220,7 +222,7 @@ workoutLogSchema.methods.generateSignedUrls = function (
       const videoKey: string = `${userId}/${this.id}/${exercise.id}.${set.id}.${set.formVideoExtension}`;
       const preSignedPost: PresignedPost = createSignedPostForWorkoutLogVideo(
         videoKey,
-        50 * megaByte
+        maxVideoFileSize
       );
       preSignedPosts.push(preSignedPost);
       if (preSignedPosts.length >= videoLimit) {
