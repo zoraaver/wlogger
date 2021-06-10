@@ -11,6 +11,8 @@ export const JWT_SECRET = process.env.JWT_SECRET as string;
 export const JWT_EMAIL_VERIFICATION_SECRET = process.env
   .JWT_EMAIL_VERIFICATION_SECRET as string;
 export const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID as string;
+export const APPLE_IOS_CLIENT_ID = process.env.APPLE_IOS_CLIENT_ID as string;
+export const APPLE_WEB_CLIENT_ID = process.env.APPLE_WEB_CLIENT_ID as string;
 export const SENDGRID_KEY = process.env.SENDGRID_KEY as string;
 const CLIENT_PRODUCTION_URL = process.env.CLIENT_PRODUCTION_URL as string;
 const CLIENT_DEVELOPMENT_URL = process.env.CLIENT_DEVELOPMENT_URL as string;
