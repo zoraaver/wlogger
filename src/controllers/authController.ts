@@ -1,34 +1,42 @@
 import { Request, Response } from "express";
 import { userDocument, User } from "../models/user";
 import { LoginTicket, OAuth2Client, TokenPayload } from "google-auth-library";
-import { GOOGLE_CLIENT_ID, JWT_EMAIL_VERIFICATION_SECRET } from "../config/env";
+import {
+  APPLE_IOS_CLIENT_ID,
+  APPLE_WEB_CLIENT_ID,
+  GOOGLE_CLIENT_ID,
+  JWT_EMAIL_VERIFICATION_SECRET,
+} from "../config/env";
+import appleSignIn from "apple-signin-auth";
 import jwt from "jsonwebtoken";
+
+enum UserCreationStatus {
+  notCreated = 0,
+  created = 1,
+}
 
 export async function login(req: Request, res: Response): Promise<void> {
   const { email, password } = req.body;
 
   const user: userDocument | null = await User.findOne(
     { email: email?.toLowerCase() },
-    "email password googleId confirmed"
+    "email password googleId appleId confirmed"
   );
-  // if the user has already signed up via google
+
   if (user?.googleId) {
     res.status(403).json({ message: "Please sign in with Google" });
-    return;
-  }
-  if (!user || !(await user.authenticate(password))) {
+  } else if (user?.appleId) {
+    res.status(403).json({ message: "Please sign in with Apple" });
+  } else if (!user || !(await user.authenticate(password))) {
     res.status(401).json({ message: "Invalid email or password" });
-    return;
-  }
-
-  if (!user.confirmed) {
+  } else if (!user.confirmed) {
     res
       .status(401)
       .json({ message: "Please verify your email address to login" });
-    return;
+  } else {
+    setCookieToken(res, user.token as string);
+    res.json({ user: { email: user.email } });
   }
-  setCookieToken(res, user.token as string);
-  res.json({ user: { email: user.email } });
 }
 
 export async function validate(req: Request, res: Response): Promise<void> {
@@ -46,30 +54,28 @@ export async function validate(req: Request, res: Response): Promise<void> {
 export async function googleLogin(req: Request, res: Response): Promise<void> {
   const { idToken } = req.body;
   try {
-    // verify token and find user from google
     const { googleId, email } = await verifyGoogleIdToken(idToken);
-    // first try to find user in db by their google id
+
     let user: userDocument | null = await User.findOne({ googleId }, "email");
-    if (user) {
-      setCookieToken(res, user.token as string);
-      res.json({ user: { email: user.email } });
-      return;
+    let userCreated: UserCreationStatus = UserCreationStatus.notCreated;
+
+    if (!user) {
+      user = await User.findOne({ email }, "email password appleId");
+
+      if (user && user.appleId) {
+        res.status(403).json({ message: "Please sign in with Apple" });
+        return;
+      } else if (user) {
+        user.googleId = googleId;
+        user.confirmed = true;
+        await user.save();
+      } else {
+        userCreated = UserCreationStatus.created;
+        user = await User.create({ email, googleId, confirmed: true });
+      }
     }
-    // then look for a matching email (i.e. user has signed up previously via email and password)
-    user = await User.findOne({ email }, "email password");
-    if (user) {
-      user.googleId = googleId;
-      user.confirmed = true;
-      await user.save();
-      setCookieToken(res, user.token as string);
-      res.json({ user: { email: user.email } });
-      return;
-    }
-    // otherwise create a new user in db
-    user = new User({ email, googleId, confirmed: true });
-    await user.save();
     setCookieToken(res, user.token as string);
-    res.status(201).json({ user: { email: user.email } });
+    res.status(200 + userCreated).json({ user: { email: user.email } });
   } catch (error) {
     res.status(401).json({ message: "Authentication failed" });
   }
@@ -89,6 +95,42 @@ async function verifyGoogleIdToken(
   }
   // the email is included in the scope so it will be in the returned payload
   return { email: payload.email as string, googleId: payload.sub };
+}
+
+export async function appleLogin(
+  req: Request<any, any, { idToken: string }>,
+  res: Response
+): Promise<void> {
+  const { idToken } = req.body;
+  try {
+    const { email, sub: appleId } = await appleSignIn.verifyIdToken(idToken, {
+      audience: [APPLE_IOS_CLIENT_ID, APPLE_WEB_CLIENT_ID],
+      issuer: "https://appleid.apple.com",
+    });
+
+    let user = await User.findOne({ appleId }, "email");
+    let userCreated: UserCreationStatus = UserCreationStatus.notCreated;
+
+    if (!user) {
+      user = await User.findOne({ email }, "email password googleId");
+
+      if (user && user.googleId) {
+        res.status(403).json({ message: "Please sign in with Google" });
+        return;
+      } else if (user) {
+        user.appleId = appleId;
+        user.confirmed = true;
+        await user.save();
+      } else {
+        user = await User.create({ email, appleId, confirmed: true });
+        userCreated = UserCreationStatus.created;
+      }
+    }
+    setCookieToken(res, user.token as string);
+    res.status(200 + userCreated).json({ user: { email: user.email } });
+  } catch (error) {
+    res.status(401).json({ message: "Authentication failed" });
+  }
 }
 
 export async function verify(req: Request, res: Response): Promise<void> {
