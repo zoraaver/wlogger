@@ -48,7 +48,7 @@ const getObjectArguments: AWS.S3.GetObjectRequest[] = [];
 
 const awsPostPolicyConditions = [
   ["starts-with", "$Content-Type", "video/"],
-  ["content-length-range", 0, 50 * megaByte],
+  ["content-length-range", 0, 100 * megaByte],
 ];
 
 jest.mock("aws-sdk", () => ({
