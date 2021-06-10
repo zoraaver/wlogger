@@ -14,6 +14,7 @@ export interface userDocument extends Document {
   weight?: number;
   height?: number;
   googleId?: string;
+  appleId?: string;
   workoutPlans: Array<workoutPlanDocument["_id"] | workoutPlanDocument>;
   workoutLogs: Array<workoutLogDocument["_id"]>;
   authenticate: (password: string) => Promise<boolean>;
@@ -39,13 +40,14 @@ const userSchema = new Schema<userDocument>({
   height: Number,
   confirmed: { type: Boolean, default: false },
   googleId: String,
+  appleId: String,
   currentWorkoutPlan: { type: Schema.Types.ObjectId, ref: "WorkoutPlan" },
   workoutPlans: [{ type: Schema.Types.ObjectId, ref: "WorkoutPlan" }],
   workoutLogs: [{ type: Schema.Types.ObjectId, ref: "WorkoutLog" }],
 });
 
 async function hashDbPassword(this: userDocument): Promise<void> {
-  if (this.googleId) return;
+  if (this.googleId || this.appleId) return;
   if (!this.password)
     throw new Error("User validation failed: password: Password is required");
   if (this.isModified("password"))
