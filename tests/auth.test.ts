@@ -86,6 +86,21 @@ describe("POST /auth/login", () => {
       await googleUser.delete();
     });
 
+    it("should respond with a 403 if the user has a apple id", async () => {
+      const email = "another@test.com";
+      const appleUser: userDocument = await User.create({
+        email,
+        appleId: "fake apple id",
+      });
+      const response: Response = await postLogin({
+        email,
+        password: "password",
+      });
+      expect(response.status).toBe(403);
+      expect(response.body.message).toBe("Please sign in with Apple");
+      await appleUser.delete();
+    });
+
     it("should respond with a 401 if the user is not confirmed", async () => {
       const unconfirmedEmail = "unconfirmed@test.com";
       const unconfirmedUser = await User.create({
@@ -132,7 +147,7 @@ describe("POST /auth/login", () => {
 });
 
 const validIdToken: string = "valid token";
-const email: string = "test@gmail.com";
+const googleEmail: string = "test@gmail.com";
 const googleId: string = "mock google id";
 
 // mock verifyIdToken method from google auth library
@@ -146,7 +161,7 @@ jest.mock("google-auth-library", () => {
             getPayload: () => {
               if (idToken === validIdToken)
                 return {
-                  email,
+                  email: googleEmail,
                   sub: googleId,
                   aud: GOOGLE_CLIENT_ID,
                 };
@@ -168,9 +183,22 @@ describe("POST /auth/google", () => {
     it("should respond with a 401 if the id token is not valid", async () => {
       const userCount: number = await User.estimatedDocumentCount();
       const response: Response = await postGoogleLogin("invalid token!");
+
       expect(response.status).toBe(401);
       expect(response.body.message).toBe("Authentication failed");
       expect(await User.estimatedDocumentCount()).toBe(userCount);
+    });
+
+    it("should respond with a 403 if the user has an apple id and uses the same email for apple and google", async () => {
+      const appleUser: userDocument = await User.create({
+        email: googleEmail,
+        appleId,
+      });
+      const response: Response = await postGoogleLogin(validIdToken);
+
+      expect(response.status).toBe(403);
+      expect(response.body.message).toBe("Please sign in with Apple");
+      await appleUser.delete();
     });
   });
 
@@ -184,16 +212,19 @@ describe("POST /auth/google", () => {
       expect(response.status).toBe(201);
       const token: string = extractCookieFromResponse(response);
 
-      const user: userDocument | null = await User.findOne({ email });
+      const user: userDocument | null = await User.findOne();
       expect(user).not.toBeNull();
-      expect(user!.email).toBe(email);
+      expect(user!.email).toBe(googleEmail);
       expect(user!.googleId).toBe(googleId);
       expect(user!.confirmed).toBe(true);
-      expect(jwt.verify(token, JWT_SECRET)).toBe(user!._id!.toString());
+      expect(jwt.verify(token, JWT_SECRET)).toBe(user!.id);
     });
 
     it("should respond with a JWT for an already existing user with a google id", async () => {
-      const user: userDocument | null = await User.create({ email, googleId });
+      const user: userDocument | null = await User.create({
+        email: googleEmail,
+        googleId,
+      });
       const response: Response = await postGoogleLogin(validIdToken);
 
       expect(response.status).toBe(200);
@@ -204,16 +235,118 @@ describe("POST /auth/google", () => {
 
     it("should respond with a JWT and update a user in the database who does not have a google id", async () => {
       let user: userDocument | null = await User.create({
-        email,
+        email: googleEmail,
         password: "password",
       });
       const response: Response = await postGoogleLogin(validIdToken);
 
       expect(response.status).toBe(200);
       const token: string = extractCookieFromResponse(response);
-      expect(jwt.verify(token, JWT_SECRET)).toBe(user._id.toString());
-      user = await User.findOne({ email });
+      expect(jwt.verify(token, JWT_SECRET)).toBe(user?.id);
+      user = await User.findOne();
       expect(user!.googleId).toBe(googleId);
+      expect(await User.estimatedDocumentCount()).toBe(1);
+    });
+  });
+});
+
+const appleEmail: string = "apple@appleface.com";
+const appleId: string = "apple id";
+
+// mock verifyIdToken method from apple signin auth package
+jest.mock("apple-signin-auth", () => {
+  return {
+    verifyIdToken: (
+      idToken: string,
+      options: { audience: string; issuer: string }
+    ) => {
+      if (idToken === validIdToken) {
+        return Promise.resolve({
+          email: appleEmail,
+          sub: appleId,
+        });
+      }
+      throw new Error("Invalid token");
+    },
+  };
+});
+
+describe("POST /auth/apple", () => {
+  function postAppleLogin(idToken: string): Test {
+    return request(app).post("/auth/apple").send({ idToken });
+  }
+
+  afterEach(async () => {
+    await User.deleteMany();
+  });
+
+  describe("with invalid credentials", () => {
+    it("should return a 401 if the id token is not valid", async () => {
+      const userCount: number = await User.estimatedDocumentCount();
+      const response: Response = await postAppleLogin("invalid token!");
+
+      expect(response.status).toBe(401);
+      expect(response.body.message).toBe("Authentication failed");
+      expect(await User.estimatedDocumentCount()).toBe(userCount);
+    });
+
+    it("should return a 403 if the user has a google id and uses the same email for google and apple", async () => {
+      const googleUser = await User.create({
+        email: appleEmail,
+        googleId: "fake google id",
+      });
+      const response: Response = await postAppleLogin(validIdToken);
+
+      expect(response.status).toBe(403);
+      expect(response.body.message).toBe("Please sign in with Google");
+      await googleUser.delete();
+    });
+  });
+
+  describe("with valid credentials", () => {
+    it("should respond with a JWT for an already existing user with an apple id", async () => {
+      const user = await User.create({ email: appleEmail, appleId });
+      const response: Response = await postAppleLogin(validIdToken);
+
+      expect(response.status).toBe(200);
+
+      const token = extractCookieFromResponse(response);
+
+      expect(jwt.verify(token, JWT_SECRET)).toBe(user.id);
+      expect(await User.estimatedDocumentCount()).toBe(1);
+    });
+
+    it("should create a user if the user is not already present in the database", async () => {
+      const response: Response = await postAppleLogin(validIdToken);
+
+      expect(response.status).toBe(201);
+
+      const user = await User.findOne();
+      const token = extractCookieFromResponse(response);
+
+      expect(user).not.toBeNull();
+      expect(user!.email).toBe(appleEmail);
+      expect(user!.appleId).toBe(appleId);
+      expect(user!.confirmed).toBe(true);
+      expect(jwt.verify(token, JWT_SECRET)).toBe(user!.id);
+      expect(await User.estimatedDocumentCount()).toBe(1);
+    });
+
+    it("should respond with a JWT and update a user in the database who does not have a apple id", async () => {
+      let user: userDocument | null = await User.create({
+        email: appleEmail,
+        password: "password",
+      });
+
+      const response: Response = await postAppleLogin(validIdToken);
+      const token = extractCookieFromResponse(response);
+
+      expect(response.status).toBe(200);
+      expect(jwt.verify(token, JWT_SECRET)).toBe(user?.id);
+
+      user = await User.findOne();
+
+      expect(user?.appleId).toBe(appleId);
       expect(await User.estimatedDocumentCount()).toBe(1);
     });
   });
@@ -230,7 +363,7 @@ describe("GET /auth/validate", () => {
 
   it("should respond with a JWT if the token is valid", async () => {
     const user: userDocument | null = await User.create({
-      email,
+      email: googleEmail,
       password: "password",
     });
     console.assert(user);
@@ -279,7 +412,7 @@ describe("POST /auth/verify", () => {
 
   it("should respond with user data and a JWT if the verification token is valid", async () => {
     const user: userDocument = await User.create({
-      email,
+      email: googleEmail,
       password: "password",
     });
     const verificationToken = jwt.sign(
@@ -298,7 +431,7 @@ describe("POST /auth/verify", () => {
 
   it("should update the user as confirmed if the verification token is valid", async () => {
     let user: userDocument | null = await User.create({
-      email,
+      email: googleEmail,
       password: "password",
     });
     const verificationToken = jwt.sign(
