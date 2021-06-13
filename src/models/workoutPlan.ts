@@ -85,8 +85,8 @@ workoutPlanSchema.methods.findNextWorkout = async function (
   const weekIndex: number = this.findCurrentWeekIndex(weekDifference);
   const currentWeek: Week = this.weeks[weekIndex];
 
-  const repeatWeeksRemaining: number =
-    currentWeek.repeat + currentWeek.position - weekDifference - 1;
+  const repeatWeeksRemaining: boolean =
+    currentWeek.repeat + currentWeek.position - weekDifference - 1 > 0;
 
   const { workout, date } = findWorkoutInCurrentWeek(
     currentWeek,
@@ -125,7 +125,7 @@ workoutPlanSchema.methods.findCurrentWeekIndex = function (
 
 function findWorkoutInCurrentWeek(
   week: Week,
-  repeatWeeksRemaining: number
+  repeatWeeksRemaining: boolean
 ): { workout?: workoutDocument; date?: Date } {
   if (week.workouts.length === 0) return {};
   const currentDate: Date = new Date(Date.now());
@@ -137,9 +137,9 @@ function findWorkoutInCurrentWeek(
   );
   sortWorkoutsByDayOfWeek(week);
   date = workout?.calculateDate(0);
-  if (!workout && repeatWeeksRemaining !== 0) {
+  if (!workout && repeatWeeksRemaining) {
     workout = week.workouts[0];
-    date = workout.calculateDate(repeatWeeksRemaining);
+    date = workout.calculateDate(1);
   }
   if (workout) {
     return { workout, date };
