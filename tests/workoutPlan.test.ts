@@ -180,7 +180,8 @@ describe("POST /workoutPlans", () => {
   describe("with valid data", () => {
     it("should insert a workout plan into the database", async () => {
       await postWorkoutPlan(workoutPlanData);
-      const workoutPlan: workoutPlanDocument | null = await WorkoutPlan.findOne();
+      const workoutPlan: workoutPlanDocument | null =
+        await WorkoutPlan.findOne();
       expect(workoutPlan).not.toBeNull();
     });
 
@@ -193,7 +194,8 @@ describe("POST /workoutPlans", () => {
 
     it("should add the workoutPlan id to the user who made the request", async () => {
       await postWorkoutPlan(workoutPlanData);
-      const workoutPlan: workoutPlanDocument | null = await WorkoutPlan.findOne();
+      const workoutPlan: workoutPlanDocument | null =
+        await WorkoutPlan.findOne();
       const workoutPlanId = workoutPlan?._id;
       const user: userDocument | null = await User.findOne();
       expect(user!.workoutPlans.slice(-1)[0]._id.toString()).toBe(
@@ -203,7 +205,8 @@ describe("POST /workoutPlans", () => {
 
     it("should default the status to 'Not started' if none is given in the request", async () => {
       await postWorkoutPlan(validWorkoutPlanData);
-      const workoutPlan: workoutPlanDocument | null = await WorkoutPlan.findOne().lean();
+      const workoutPlan: workoutPlanDocument | null =
+        await WorkoutPlan.findOne().lean();
       expect(workoutPlan).not.toBeNull();
       expect(workoutPlan!.status).toBe("Not started");
     });
@@ -213,7 +216,8 @@ describe("POST /workoutPlans", () => {
         ...workoutPlanData,
         weeks: [{ workouts: [], position: 1 }],
       });
-      const workoutPlan: workoutPlanDocument | null = await WorkoutPlan.findOne().lean();
+      const workoutPlan: workoutPlanDocument | null =
+        await WorkoutPlan.findOne().lean();
       expect(workoutPlan).not.toBeNull();
       expect(workoutPlan!.weeks[0].repeat).toBe(0);
     });
@@ -221,7 +225,8 @@ describe("POST /workoutPlans", () => {
     it("should default the number of repetitions of an exercise to 0 if none is given", async () => {
       delete workoutPlanData.weeks[0].workouts[0].exercises[0].repetitions;
       await postWorkoutPlan(workoutPlanData);
-      const workoutPlan: workoutPlanDocument | null = await WorkoutPlan.findOne().lean();
+      const workoutPlan: workoutPlanDocument | null =
+        await WorkoutPlan.findOne().lean();
       expect(workoutPlan).not.toBeNull();
       expect(workoutPlan!.weeks[0].workouts[0].exercises[0].repetitions).toBe(
         0
@@ -230,7 +235,8 @@ describe("POST /workoutPlans", () => {
     it("should default the weight of an exercise to 0 if none is given", async () => {
       delete workoutPlanData.weeks[0].workouts[0].exercises[0].weight;
       await postWorkoutPlan(workoutPlanData);
-      const workoutPlan: workoutPlanDocument | null = await WorkoutPlan.findOne().lean();
+      const workoutPlan: workoutPlanDocument | null =
+        await WorkoutPlan.findOne().lean();
       expect(workoutPlan).not.toBeNull();
       expect(workoutPlan!.weeks[0].workouts[0].exercises[0].weight).toBe(0);
     });
@@ -250,7 +256,7 @@ describe("POST /workoutPlans", () => {
     it("should respond with a 406 if status is an invalid status", async () => {
       const response: Response = await postWorkoutPlan({
         ...workoutPlanData,
-        status: ("Invalid status!" as unknown) as workoutPlanStatus,
+        status: "Invalid status!" as unknown as workoutPlanStatus,
       });
       expect(response.status).toBe(406);
       expect(response.body.field).toBe("status");
@@ -260,7 +266,7 @@ describe("POST /workoutPlans", () => {
     });
 
     it("should respond with a 406 if a week is missing a position", async () => {
-      workoutPlanData.weeks[0].position = (undefined as unknown) as number;
+      workoutPlanData.weeks[0].position = undefined as unknown as number;
       const response: Response = await postWorkoutPlan(workoutPlanData);
       expect(response.status).toBe(406);
       expect(response.body.field).toBe("weeks.0.position");
@@ -279,7 +285,8 @@ describe("POST /workoutPlans", () => {
 
     it("should respond with a 406 if a workout does not have a day of the week", async () => {
       // override type system on purpose to send bad data
-      workoutPlanData.weeks[0].workouts[0].dayOfWeek = (undefined as unknown) as Day;
+      workoutPlanData.weeks[0].workouts[0].dayOfWeek =
+        undefined as unknown as Day;
       const response: Response = await postWorkoutPlan(workoutPlanData);
       expect(response.status).toBe(406);
       expect(response.body.field).toBe("weeks.0.workouts.0.dayOfWeek");
@@ -288,7 +295,8 @@ describe("POST /workoutPlans", () => {
 
     it("should respond with a 406 if a workout has an invalid day of the week", async () => {
       // override type system on purpose to send bad data
-      workoutPlanData.weeks[0].workouts[0].dayOfWeek = ("I'm not a day!" as unknown) as Day;
+      workoutPlanData.weeks[0].workouts[0].dayOfWeek =
+        "I'm not a day!" as unknown as Day;
       const response: Response = await postWorkoutPlan(workoutPlanData);
       expect(response.status).toBe(406);
       expect(response.body.field).toBe("weeks.0.workouts.0.dayOfWeek");
@@ -296,7 +304,8 @@ describe("POST /workoutPlans", () => {
     });
 
     it("should respond with a 406 if an exercise has no name", async () => {
-      workoutPlanData.weeks[0].workouts[0].exercises[0].name = (undefined as unknown) as string;
+      workoutPlanData.weeks[0].workouts[0].exercises[0].name =
+        undefined as unknown as string;
       const response: Response = await postWorkoutPlan(workoutPlanData);
       expect(response.status).toBe(406);
       expect(response.body.field).toBe("weeks.0.workouts.0.exercises.0.name");
@@ -333,7 +342,8 @@ describe("POST /workoutPlans", () => {
 
     it("should respond with a 406 if an exercise has an invalid unit of weight", async () => {
       // override type system on purpose to send bad data
-      workoutPlanData.weeks[0].workouts[0].exercises[0].unit = ("I'm not a valid unit" as unknown) as weightUnit;
+      workoutPlanData.weeks[0].workouts[0].exercises[0].unit =
+        "I'm not a valid unit" as unknown as weightUnit;
       const response: Response = await postWorkoutPlan(workoutPlanData);
       expect(response.status).toBe(406);
       expect(response.body.field).toBe("weeks.0.workouts.0.exercises.0.unit");
@@ -342,7 +352,7 @@ describe("POST /workoutPlans", () => {
 
     it("should respond with a 406 if autoIncrement field is invalid", async () => {
       workoutPlanData.weeks[1].workouts[0].exercises[0].autoIncrement = {
-        field: ("invalid field" as unknown) as incrementField,
+        field: "invalid field" as unknown as incrementField,
         amount: 2,
       };
       const response: Response = await postWorkoutPlan(workoutPlanData);
@@ -624,6 +634,15 @@ describe("GET /workoutPlans/nextWorkout", () => {
       expect(response.body.dayOfWeek).toBe("Sunday");
       const date: Date = new Date(response.body.date);
       expect(date.toDateString()).toBe("Sun Mar 28 2021");
+    });
+
+    it("set today's date as 4th April => next workout should be Tuesday second week", async () => {
+      fakeCurrentDate(new Date(2021, 3, 4));
+      const response: Response = await getNextWorkout();
+      expect(response.status).toBe(200);
+      expect(response.body.dayOfWeek).toBe("Tuesday");
+      const date: Date = new Date(response.body.date);
+      expect(date.toDateString()).toBe("Tue Apr 06 2021");
     });
 
     it("set today's date as 9th April => next workout should be Friday second week", async () => {
