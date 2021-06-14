@@ -24,27 +24,30 @@ export interface userDocument extends Document {
 }
 // TODO: add field 'lastCompletedWorkoutDate' to user
 
-const userSchema = new Schema<userDocument>({
-  email: {
-    type: String,
-    required: [true, "Email is a required field"],
-    unique: true,
-    validate: {
-      validator: (email: string) => validator.isEmail(email),
-      message: "Email is invalid",
+const userSchema = new Schema<userDocument>(
+  {
+    email: {
+      type: String,
+      required: [true, "Email is a required field"],
+      unique: true,
+      validate: {
+        validator: (email: string) => validator.isEmail(email),
+        message: "Email is invalid",
+      },
     },
+    password: String,
+    age: Number,
+    weight: Number,
+    height: Number,
+    confirmed: { type: Boolean, default: false },
+    googleId: String,
+    appleId: String,
+    currentWorkoutPlan: { type: Schema.Types.ObjectId, ref: "WorkoutPlan" },
+    workoutPlans: [{ type: Schema.Types.ObjectId, ref: "WorkoutPlan" }],
+    workoutLogs: [{ type: Schema.Types.ObjectId, ref: "WorkoutLog" }],
   },
-  password: String,
-  age: Number,
-  weight: Number,
-  height: Number,
-  confirmed: { type: Boolean, default: false },
-  googleId: String,
-  appleId: String,
-  currentWorkoutPlan: { type: Schema.Types.ObjectId, ref: "WorkoutPlan" },
-  workoutPlans: [{ type: Schema.Types.ObjectId, ref: "WorkoutPlan" }],
-  workoutLogs: [{ type: Schema.Types.ObjectId, ref: "WorkoutLog" }],
-});
+  { timestamps: true }
+);
 
 async function hashDbPassword(this: userDocument): Promise<void> {
   if (this.googleId || this.appleId) return;
