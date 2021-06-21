@@ -1,10 +1,10 @@
 import { ObjectID } from "bson";
 import { Document, model, Schema } from "mongoose";
 import { S3 } from "../config/aws";
-import { weightUnit, workoutDocument } from "./workout";
+import { workoutDocument } from "./workout";
 import { WLOGGER_BUCKET } from "../config/env";
 import { PresignedPost } from "aws-sdk/clients/s3";
-import { megaByte } from "../util/util";
+import { megaByte, weightUnit, weightUnits } from "../util/util";
 
 export type workoutLog = {
   createdAt: Date;
@@ -33,10 +33,11 @@ export type workoutLog = {
   generateSignedUrls: (userId: string) => PresignedPost[];
 };
 
-export type workoutLogDocument = Document & workoutLog;
+export const validFileExtensions = ["avi", "mov", "mp4"] as const;
 
-export type videoFileExtension = "mov" | "avi" | "mp4";
-export const validFileExtensions: videoFileExtension[] = ["avi", "mov", "mp4"];
+export type videoFileExtension = typeof validFileExtensions[number];
+
+export type workoutLogDocument = Document & workoutLog;
 
 export interface workoutLogHeaderData {
   createdAt: Date;
@@ -62,8 +63,6 @@ export type loggedSet = {
 };
 
 export type loggedSetDocument = loggedSet & Document;
-
-const weightUnits: weightUnit[] = ["kg", "lb"];
 
 const workoutLogSchema = new Schema<workoutLogDocument>({
   workoutId: { type: Schema.Types.ObjectId, ref: "Workout" },
@@ -126,15 +125,19 @@ workoutLogSchema.methods.deleteSetVideo = async function (
 ): Promise<boolean> {
   const set: loggedSet | undefined = this.findSet(exerciseId, setId);
   if (!set || !set.formVideoExtension) return false;
+
   const videoKey = `${userId}/${this.id}/${exerciseId}.${setId}.${set.formVideoExtension}`;
+
   const result = await S3.deleteObject({
     Bucket: WLOGGER_BUCKET,
     Key: videoKey,
   }).promise();
+
   if (!result.$response.error) {
     set.formVideoExtension = undefined;
     await this.save();
   }
+
   return true;
 };
 
@@ -161,10 +164,12 @@ workoutLogSchema.methods.deleteAllSetVideos = async function (
   for (const exercise of this.exercises) {
     for (const set of exercise.sets) {
       if (!set.formVideoExtension) continue;
+
       const videoKey: string = `${userId}/${this.id}/${exercise.id}.${set.id}.${set.formVideoExtension}`;
       videoObjectsToDelete.push({ Key: videoKey });
     }
   }
+
   if (videoObjectsToDelete.length > 0) {
     await S3.deleteObjects({
       Bucket: WLOGGER_BUCKET,
@@ -180,9 +185,11 @@ workoutLogSchema.methods.generateSetVideoDisplayFileName = function (
   const exercise: loggedExerciseDocument | undefined = this.exercises.find(
     (exercise) => exercise.id === exerciseId
   );
+
   const set: loggedSet | undefined = exercise?.sets.find(
     (set) => set.id === setId
   );
+
   return `${this.createdAt.toDateString()}: ${exercise?.name}, ${
     set?.repetitions
   } x ${set?.weight} ${set?.unit}.${set?.formVideoExtension}`;
@@ -194,16 +201,21 @@ workoutLogSchema.methods.getVideoFileSize = async function (
   set?: loggedSetDocument
 ): Promise<number> {
   if (!set || !userId || !exerciseId || !set.formVideoExtension) return 0;
+
   const videoKey: string = `${userId}/${this.id}/${exerciseId}.${set.id}`;
+
   const result = await S3.listObjectsV2({
     Bucket: WLOGGER_BUCKET,
     Prefix: videoKey,
   }).promise();
+
   if (result.$response.data) {
     const fileSize: number | undefined =
       result.$response.data.Contents?.[0]?.Size;
+
     return fileSize === undefined ? 0 : fileSize;
   }
+
   return 0;
 };
 
@@ -217,14 +229,19 @@ workoutLogSchema.methods.generateSignedUrls = function (
 
   for (const exercise of this.exercises) {
     let videoLimitReached: boolean = false;
+
     for (const set of exercise.sets) {
       if (!set.formVideoExtension) continue;
+
       const videoKey: string = `${userId}/${this.id}/${exercise.id}.${set.id}.${set.formVideoExtension}`;
+
       const preSignedPost: PresignedPost = createSignedPostForWorkoutLogVideo(
         videoKey,
         maxVideoFileSize
       );
+
       preSignedPosts.push(preSignedPost);
+
       if (preSignedPosts.length >= videoLimit) {
         videoLimitReached = true;
         break;
