@@ -193,7 +193,7 @@ workoutLogSchema.methods.getVideoFileSize = async function (
   exerciseId?: string,
   set?: loggedSetDocument
 ): Promise<number> {
-  if (!set || !userId || !exerciseId) return 0;
+  if (!set || !userId || !exerciseId || !set.formVideoExtension) return 0;
   const videoKey: string = `${userId}/${this.id}/${exerciseId}.${set.id}`;
   const result = await S3.listObjectsV2({
     Bucket: WLOGGER_BUCKET,
