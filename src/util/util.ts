@@ -13,9 +13,12 @@ export function dateDifferenceInWeeks(d1: Date, d2: Date): number {
 
 export function goBackToPreviousMonday(date: Date): Date {
   const day: number = date.getDay();
+
   let dayDifference: number = day - 1;
   if (dayDifference < 0) dayDifference = 6;
+
   let timeDifference: number = dayDifference * millisecondsInDay;
-  date.setTime(date.getTime() - timeDifference);
-  return date;
+
+  const previousMondayDate = new Date(date.getTime() - timeDifference);
+  return previousMondayDate;
 }
