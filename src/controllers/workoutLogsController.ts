@@ -2,8 +2,6 @@ import { Request, Response } from "express";
 import { ResponseMessage } from "../../@types";
 import { userDocument } from "../models/user";
 import {
-  loggedExerciseDocument,
-  loggedSetDocument,
   videoFileExtension,
   WorkoutLog,
   workoutLogDocument,
@@ -17,12 +15,15 @@ import { PresignedPost } from "aws-sdk/clients/s3";
 export async function create(req: Request, res: Response): Promise<void> {
   try {
     const workoutLog: workoutLogDocument = await WorkoutLog.create(req.body);
+
     const user = req.currentUser as userDocument;
     user.workoutLogs.unshift(workoutLog._id);
     await user.save();
+
     const signedPostUrls: PresignedPost[] = workoutLog.generateSignedUrls(
       req.currentUser?.id
     );
+
     res
       .status(201)
       .json({ ...workoutLog.toObject(), uploadUrls: signedPostUrls });
@@ -40,6 +41,7 @@ export async function index(
   await user
     .populate({ path: "workoutLogs", options: { sort: { createdAt: -1 } } })
     .execPopulate();
+
   res.json(
     user.workoutLogs.map((workoutLog) =>
       workoutLog.generateWorkoutLogHeaderData()
@@ -55,6 +57,7 @@ export async function show(
   const workoutLog: workoutLogDocument | null = (await WorkoutLog.findById(
     id
   )) as workoutLogDocument;
+
   res.json(workoutLog);
 }
 
@@ -63,18 +66,22 @@ export async function destroy(
   res: Response<string>
 ): Promise<void> {
   const user = req.currentUser as userDocument;
+
   const workoutLogToDelete = req.currentWorkoutLog as workoutLogDocument;
   const workoutLogToDeleteIndex: number | undefined =
     user.workoutLogs.findIndex(
       (workoutLog: workoutLogDocument) =>
         workoutLog.toString() === workoutLogToDelete.id
     );
+
   user.workoutLogs.splice(workoutLogToDeleteIndex, 1);
+
   await Promise.all([
     workoutLogToDelete.deleteAllSetVideos(user.id),
     user.save(),
     workoutLogToDelete.delete(),
   ]);
+
   res.json(workoutLogToDelete.id);
 }
 
@@ -84,16 +91,12 @@ export async function showSetVideo(
 ): Promise<void> {
   const workoutLog = req.currentWorkoutLog as workoutLogDocument;
   const { setId, exerciseId } = req.params;
-  const exercise: loggedExerciseDocument | undefined =
-    workoutLog.exercises.find((exercise) => exercise.id === exerciseId);
-  const set: loggedSetDocument | undefined = exercise?.sets.find(
-    (set) => set.id === setId
+
+  const exercise = workoutLog.exercises.find(
+    (exercise) => exercise.id === exerciseId
   );
 
-  if (!set || !set.formVideoExtension) {
-    res.status(404).json();
-    return;
-  }
+  const set = exercise?.sets.find((set) => set.id === setId);
 
   const fileSize: number = await workoutLog.getVideoFileSize(
     req.currentUser?.id,
@@ -106,24 +109,19 @@ export async function showSetVideo(
     return;
   }
 
-  const fileExtension: videoFileExtension | undefined = set.formVideoExtension;
-  const displayFileName = workoutLog.generateSetVideoDisplayFileName(
-    exerciseId,
-    setId
-  );
+  const fileExtension: videoFileExtension = set!
+    .formVideoExtension as videoFileExtension;
 
-  res.attachment(displayFileName);
   res.contentType(fileExtension);
+  res.attachment(workoutLog.generateSetVideoDisplayFileName(exerciseId, setId));
+  res.setHeader("Content-Length", fileSize);
+
   if (req.headers.range)
     writeVideoStreamHeaders(res, fileSize, req.headers.range);
 
   const videoKey: string = `${req.currentUser?.id}/${workoutLog.id}/${exerciseId}.${setId}.${fileExtension}`;
 
-  pipeline(
-    createS3VideoStream(videoKey, req.headers.range),
-    res,
-    (err: NodeJS.ErrnoException | null) => {}
-  );
+  pipeline(createS3VideoStream(videoKey, req.headers.range), res, () => {});
 }
 
 function createS3VideoStream(videoKey: string, range?: string) {
@@ -162,15 +160,18 @@ export async function destroySetVideo(
   res: Response<{ setId: string; exerciseId: string }>
 ): Promise<void> {
   const workoutLog = req.currentWorkoutLog as workoutLogDocument;
+
   const { setId, exerciseId } = req.params;
   const videoDeleted: boolean = await workoutLog.deleteSetVideo(
     exerciseId,
     setId,
     req.currentUser?.id
   );
+
   if (!videoDeleted) {
     res.status(404).json();
     return;
   }
+
   res.json({ setId, exerciseId });
 }
