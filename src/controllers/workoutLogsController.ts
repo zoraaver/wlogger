@@ -160,8 +160,8 @@ export async function destroySetVideo(
   res: Response<{ setId: string; exerciseId: string }>
 ): Promise<void> {
   const workoutLog = req.currentWorkoutLog as workoutLogDocument;
-
   const { setId, exerciseId } = req.params;
+
   const videoDeleted: boolean = await workoutLog.deleteSetVideo(
     exerciseId,
     setId,
