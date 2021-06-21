@@ -1,40 +1,18 @@
 import { ObjectID } from "bson";
 import { Document, Schema } from "mongoose";
-import { millisecondsInDay, millisecondsInWeek } from "../util/util";
+import {
+  Day,
+  days,
+  daysToNumbers,
+  getCurrentWeekDay,
+  millisecondsInDay,
+  millisecondsInWeek,
+} from "../util/util";
 import {
   loggedExerciseDocument,
   WorkoutLog,
   workoutLogDocument,
 } from "./workoutLog";
-
-export type Day =
-  | "Monday"
-  | "Tuesday"
-  | "Wednesday"
-  | "Thursday"
-  | "Friday"
-  | "Saturday"
-  | "Sunday";
-
-export const days: Day[] = [
-  "Sunday",
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-];
-
-export const daysToNumbers: { [dayOfWeek: string]: number } = {
-  Monday: 0,
-  Tuesday: 1,
-  Wednesday: 2,
-  Thursday: 3,
-  Friday: 4,
-  Saturday: 5,
-  Sunday: 6,
-};
 
 export type incrementField = "weight" | "repetitions" | "sets";
 export const incrementFields: incrementField[] = [
@@ -118,9 +96,11 @@ export const workoutSchema = new Schema<workoutDocument>({
 });
 
 workoutSchema.methods.calculateDate = function (weeksIntoFuture: number): Date {
-  const today: Day = days[new Date(Date.now()).getDay()];
+  const currentWeekDay: Day = getCurrentWeekDay();
+
   const daysIntoFuture: number =
-    daysToNumbers[this.dayOfWeek] - daysToNumbers[today];
+    daysToNumbers[this.dayOfWeek] - daysToNumbers[currentWeekDay];
+
   return new Date(
     Date.now() +
       weeksIntoFuture * millisecondsInWeek +
@@ -131,45 +111,53 @@ workoutSchema.methods.calculateDate = function (weeksIntoFuture: number): Date {
 workoutSchema.methods.applyIncrements = async function (
   workoutLogIds: ObjectID[]
 ) {
-  const workoutLogsOneWeekAgo: workoutLogDocument[] = await this.findMatchingWorkoutLogsOneWeekAgo(
-    workoutLogIds
-  );
+  const workoutLogsOneWeekAgo: workoutLogDocument[] =
+    await this.findMatchingWorkoutLogsOneWeekAgo(workoutLogIds);
+
   if (workoutLogsOneWeekAgo.length > 0) {
     const lastLog: workoutLogDocument =
       workoutLogsOneWeekAgo[workoutLogsOneWeekAgo.length - 1];
+
     lastLog.exercises.forEach((loggedExercise: loggedExerciseDocument) => {
       this.exercises.forEach((exercise) => {
-        if (
-          !exercise.autoIncrement ||
-          exercise._id.toString() !== loggedExercise.exerciseId?.toString()
-        )
-          return;
-        if (lastLogReachedWorkoutGoal(exercise, loggedExercise)) {
-          if (exercise.autoIncrement.field === "sets") {
-            exercise.sets =
-              loggedExercise.sets.length + exercise.autoIncrement.amount;
-          } else {
-            const lastSetField: number =
-              loggedExercise.sets[loggedExercise.sets.length - 1][
-                exercise.autoIncrement.field
-              ];
-            exercise[exercise.autoIncrement.field] =
-              lastSetField + exercise.autoIncrement.amount;
-          }
-        }
+        applyIncrements(loggedExercise, exercise);
       });
     });
   }
 };
 
+function applyIncrements(
+  loggedExercise: loggedExerciseDocument,
+  exercise: workoutExercise
+) {
+  const exercisesMatch =
+    exercise._id.toString() === loggedExercise.exerciseId?.toString();
+
+  if (!exercise.autoIncrement || !exercisesMatch) return;
+
+  if (lastLogReachedWorkoutGoal(exercise, loggedExercise)) {
+    if (exercise.autoIncrement.field === "sets") {
+      exercise.sets =
+        loggedExercise.sets.length + exercise.autoIncrement.amount;
+    } else {
+      const lastSet = loggedExercise.sets[loggedExercise.sets.length - 1];
+
+      exercise[exercise.autoIncrement.field] =
+        lastSet[exercise.autoIncrement.field] + exercise.autoIncrement.amount;
+    }
+  }
+}
+
 workoutSchema.methods.findMatchingWorkoutLogsOneWeekAgo = async function (
   workoutLogIds: ObjectID[]
 ): Promise<workoutLogDocument[]> {
   const oneWeekAgo: Date = new Date(Date.now() - millisecondsInWeek);
+
   const startOfDayOneWeekAgo: Date = new Date(oneWeekAgo.setHours(0, 0, 0, 0));
   const endOfDayOneWeekAgo: Date = new Date(
     oneWeekAgo.setHours(23, 59, 59, 999)
   );
+
   return await WorkoutLog.find({
     createdAt: { $gte: startOfDayOneWeekAgo, $lte: endOfDayOneWeekAgo },
     workoutId: this._id,
@@ -182,6 +170,7 @@ function lastLogReachedWorkoutGoal(
   loggedExercise: loggedExerciseDocument
 ): boolean {
   if (loggedExercise.sets.length < exercise.sets) return false;
+
   for (const loggedSet of loggedExercise.sets) {
     if (
       loggedSet.repetitions < exercise.repetitions ||
