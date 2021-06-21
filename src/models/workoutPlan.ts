@@ -1,7 +1,13 @@
 import { ObjectID } from "bson";
 import { Document, Schema, model } from "mongoose";
-import { dateDifferenceInWeeks, goBackToPreviousMonday } from "../util/util";
-import { Day, days, daysToNumbers, workoutDocument } from "./workout";
+import {
+  dateDifferenceInWeeks,
+  Day,
+  daysToNumbers,
+  getCurrentWeekDay,
+  goBackToPreviousMonday,
+} from "../util/util";
+import { workoutDocument } from "./workout";
 import { workoutSchema } from "./workout";
 
 export type workoutPlanStatus = "In progress" | "Completed" | "Not started";
@@ -68,10 +74,12 @@ export type WorkoutDateResult =
 
 workoutPlanSchema.methods.calculateWeekDifference = function (): number {
   const today: Date = new Date(Date.now());
+
   const weekDifference: number = dateDifferenceInWeeks(
     goBackToPreviousMonday(this.start),
     today
   );
+
   return weekDifference;
 };
 
@@ -79,9 +87,11 @@ workoutPlanSchema.methods.findNextWorkout = async function (
   workoutLogs: ObjectID[]
 ): Promise<WorkoutDateResult> {
   const weekDifference: number = this.calculateWeekDifference();
+
   if (this.isCompleted(weekDifference)) {
     return "Completed";
   }
+
   const weekIndex: number = this.findCurrentWeekIndex(weekDifference);
   const currentWeek: Week = this.weeks[weekIndex];
 
@@ -92,6 +102,7 @@ workoutPlanSchema.methods.findNextWorkout = async function (
     currentWeek,
     repeatWeeksRemaining
   );
+
   if (workout && date) {
     if (currentWeek.repeat) await workout.applyIncrements(workoutLogs);
     return { workout, date };
@@ -102,10 +113,13 @@ workoutPlanSchema.methods.findNextWorkout = async function (
 
 workoutPlanSchema.methods.isCompleted = function (weekDifference: number) {
   if (!this.weeks || this.weeks.length === 0) return true;
+
   const lastWeek: Week = this.weeks[this.weeks.length - 1];
+
   if (weekDifference >= lastWeek.position + lastWeek.repeat) {
     return true;
   }
+
   return false;
 };
 
@@ -120,6 +134,7 @@ workoutPlanSchema.methods.findCurrentWeekIndex = function (
   ) {
     ++weekIndex;
   }
+
   return weekIndex;
 };
 
@@ -128,22 +143,27 @@ function findWorkoutInCurrentWeek(
   repeatWeeksRemaining: boolean
 ): { workout?: workoutDocument; date?: Date } {
   if (week.workouts.length === 0) return {};
-  const currentDate: Date = new Date(Date.now());
-  const currentDay: Day = days[currentDate.getDay()];
+
+  const currentWeekDay: Day = getCurrentWeekDay();
   let date: Date | undefined;
+
   let workout = week.workouts.find(
     (w: workoutDocument) =>
-      daysToNumbers[w.dayOfWeek] >= daysToNumbers[currentDay]
+      daysToNumbers[w.dayOfWeek] >= daysToNumbers[currentWeekDay]
   );
+
   sortWorkoutsByDayOfWeek(week);
   date = workout?.calculateDate(0);
+
   if (!workout && repeatWeeksRemaining) {
     workout = week.workouts[0];
     date = workout.calculateDate(1);
   }
+
   if (workout) {
     return { workout, date };
   }
+
   return {};
 }
 
@@ -152,10 +172,12 @@ workoutPlanSchema.methods.findWorkoutInUpcomingWeeks = function (
   weekDifference: number
 ): WorkoutDateResult {
   let workout: workoutDocument | undefined = undefined;
+
   while (workout === undefined && ++weekIndex < this.weeks.length) {
     const week: Week = this.weeks[weekIndex];
     // make sure workouts are sorted by day of week
     sortWorkoutsByDayOfWeek(week);
+
     if (week.workouts.length > 0) {
       workout = week.workouts[0];
       return {
@@ -164,18 +186,24 @@ workoutPlanSchema.methods.findWorkoutInUpcomingWeeks = function (
       };
     }
   }
+
   return "All workouts in the plan have been completed.";
 };
 
 export function validateWeekPositions(weeks: Week[] | undefined): void {
   if (!weeks) return;
+
   weeks.sort((a: Week, b: Week) => a.position - b.position);
+
   let actualPosition: number = 1;
+
   weeks.forEach((week: Week, weekIndex: number) => {
-    if (week.position !== actualPosition)
+    if (week.position !== actualPosition) {
       throw new Error(
         `Validation error: weeks.${weekIndex}.position: Invalid position, expected ${actualPosition}`
       );
+    }
+
     actualPosition = actualPosition + (week.repeat ? week.repeat : 0) + 1;
   });
 }
