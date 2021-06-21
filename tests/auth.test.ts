@@ -151,28 +151,24 @@ const googleEmail: string = "test@gmail.com";
 const googleId: string = "mock google id";
 
 // mock verifyIdToken method from google auth library
-jest.mock("google-auth-library", () => {
-  return {
-    OAuth2Client: jest.fn().mockImplementation(() => {
+jest.mock("google-auth-library", () => ({
+  OAuth2Client: jest.fn().mockImplementation(() => ({
+    verifyIdToken: (options: { idToken: string; audience: string }) => {
+      const { idToken } = options;
       return {
-        verifyIdToken: (options: { idToken: string; audience: string }) => {
-          const { idToken } = options;
-          return {
-            getPayload: () => {
-              if (idToken === validIdToken)
-                return {
-                  email: googleEmail,
-                  sub: googleId,
-                  aud: GOOGLE_CLIENT_ID,
-                };
-              throw new Error("Invalid token");
-            },
-          };
+        getPayload: () => {
+          if (idToken === validIdToken)
+            return {
+              email: googleEmail,
+              sub: googleId,
+              aud: GOOGLE_CLIENT_ID,
+            };
+          throw new Error("Invalid token");
         },
       };
-    }),
-  };
-});
+    },
+  })),
+}));
 
 describe("POST /auth/google", () => {
   function postGoogleLogin(idToken: string): Test {
