@@ -52,50 +52,44 @@ const awsPostPolicyConditions = [
 ];
 
 jest.mock("aws-sdk", () => ({
-  S3: jest.fn().mockImplementation(() => {
-    return {
-      getObject: (params: AWS.S3.GetObjectRequest) => {
-        getObjectArguments.push(params);
-        return {
-          createReadStream: () => {
-            return Readable.from([videoFile]);
-          },
-        };
-      },
-      deleteObject: (params: AWS.S3.DeleteObjectRequest) => {
-        deleteObjectArguments.push(params);
-        return { promise: () => Promise.resolve({ $response: {} }) };
-      },
-      deleteObjects: (params: AWS.S3.DeleteObjectsRequest) => {
-        deleteObjectsArguments.push(params);
-        return { promise: () => Promise.resolve() };
-      },
-      listObjectsV2: (params: AWS.S3.ListObjectsV2Request) => {
-        return {
-          promise: () =>
-            Promise.resolve({
-              $response: {
-                data: {
-                  Contents: [
-                    {
-                      Size: videoFileSize.toString(),
-                    },
-                  ],
+  S3: jest.fn().mockImplementation(() => ({
+    getObject: (params: AWS.S3.GetObjectRequest) => {
+      getObjectArguments.push(params);
+      return {
+        createReadStream: () => Readable.from([videoFile]),
+      };
+    },
+    deleteObject: (params: AWS.S3.DeleteObjectRequest) => {
+      deleteObjectArguments.push(params);
+      return { promise: () => Promise.resolve({ $response: {} }) };
+    },
+    deleteObjects: (params: AWS.S3.DeleteObjectsRequest) => {
+      deleteObjectsArguments.push(params);
+      return { promise: () => Promise.resolve() };
+    },
+    listObjectsV2: () => ({
+      promise: () =>
+        Promise.resolve({
+          $response: {
+            data: {
+              Contents: [
+                {
+                  Size: videoFileSize.toString(),
                 },
-              },
-            }),
-        };
-      },
-      createPresignedPost: (params: PresignedPost.Params) => {
-        return {
-          Bucket: params.Bucket,
-          Conditions: params.Conditions,
-          Expires: params.Expires,
-          Fields: params.Fields,
-        };
-      },
-    };
-  }),
+              ],
+            },
+          },
+        }),
+    }),
+    createPresignedPost: (params: PresignedPost.Params) => {
+      return {
+        Bucket: params.Bucket,
+        Conditions: params.Conditions,
+        Expires: params.Expires,
+        Fields: params.Fields,
+      };
+    },
+  })),
   config: { loadFromPath: () => {} },
 }));
 
@@ -103,23 +97,13 @@ jest.mock("aws-sdk", () => ({
 jest.mock("../src/middleware/auth", () => ({
   setCurrentUser: jest
     .fn()
-    .mockImplementation(
-      async (
-        req: Express.Request,
-        res: Express.Response,
-        next: NextFunction
-      ) => {
-        req.currentUser = (await User.findById(user.id)) as userDocument;
-        next();
-      }
-    ),
-  loggedIn: jest
-    .fn()
-    .mockImplementation(
-      (req: Express.Request, res: Express.Response, next: NextFunction) => {
-        next();
-      }
-    ),
+    .mockImplementation(async (req: Express.Request, _, next: NextFunction) => {
+      req.currentUser = (await User.findById(user.id)) as userDocument;
+      next();
+    }),
+  loggedIn: jest.fn().mockImplementation((_, __, next: NextFunction) => {
+    next();
+  }),
 }));
 
 beforeAll(async () => {
@@ -554,6 +538,7 @@ describe("GET /workoutLogs/:id/exercises/:exerciseId/sets/:setId/video", () => {
     expect(response.status).toBe(200);
     expect(response.body).toStrictEqual(videoFileContent);
     expect(response.headers["content-type"]).toBe("video/quicktime");
+    expect(response.headers["content-length"]).toBe(videoFileSize.toString());
     expect(response.headers["content-disposition"]).toBe(
       `attachment; filename="${displayFileName}"`
     );
