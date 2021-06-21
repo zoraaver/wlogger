@@ -8,11 +8,12 @@ import {
   workoutPlanDocument,
   workoutPlanStatus,
 } from "../src/models/workoutPlan";
-import { Day, incrementField, weightUnit } from "../src/models/workout";
+import { incrementField, weightUnit } from "../src/models/workout";
 import { NextFunction } from "express";
 import { workoutLogData } from "./workoutLog.test";
 import { ObjectID } from "bson";
 import { WorkoutLog } from "../src/models/workoutLog";
+import { Day } from "../src/util/util";
 
 let user: userDocument;
 const userData = { email: "test@test.com", password: "password" };

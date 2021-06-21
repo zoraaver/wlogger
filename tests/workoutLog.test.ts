@@ -8,13 +8,12 @@ import {
   WorkoutLog,
   workoutLogDocument,
 } from "../src/models/workoutLog";
-import { weightUnit } from "../src/models/workout";
 import { workoutLogHeaderData } from "../src/models/workoutLog";
 import { NextFunction } from "express";
 import { ObjectID } from "mongodb";
 import { PresignedPost } from "aws-sdk/clients/s3";
 import { WLOGGER_BUCKET } from "../src/config/env";
-import { megaByte } from "../src/util/util";
+import { megaByte, weightUnit } from "../src/util/util";
 import { Readable } from "stream";
 
 let user: userDocument;
