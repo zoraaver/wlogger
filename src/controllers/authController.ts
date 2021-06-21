@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { userDocument, User } from "../models/user";
-import { LoginTicket, OAuth2Client, TokenPayload } from "google-auth-library";
+import { OAuth2Client, TokenPayload } from "google-auth-library";
 import {
   APPLE_IOS_CLIENT_ID,
   APPLE_WEB_CLIENT_ID,
@@ -9,11 +9,6 @@ import {
 } from "../config/env";
 import appleSignIn from "apple-signin-auth";
 import jwt from "jsonwebtoken";
-
-enum UserCreationStatus {
-  notCreated = 0,
-  created = 1,
-}
 
 export async function login(req: Request, res: Response): Promise<void> {
   const { email, password } = req.body;
@@ -57,7 +52,7 @@ export async function googleLogin(req: Request, res: Response): Promise<void> {
     const { googleId, email } = await verifyGoogleIdToken(idToken);
 
     let user: userDocument | null = await User.findOne({ googleId }, "email");
-    let userCreated: UserCreationStatus = UserCreationStatus.notCreated;
+    let userCreated: 0 | 1 = 0;
 
     if (!user) {
       user = await User.findOne({ email }, "email password appleId");
@@ -70,10 +65,11 @@ export async function googleLogin(req: Request, res: Response): Promise<void> {
         user.confirmed = true;
         await user.save();
       } else {
-        userCreated = UserCreationStatus.created;
+        userCreated = 1;
         user = await User.create({ email, googleId, confirmed: true });
       }
     }
+
     setCookieToken(res, user.token as string);
     res.status(200 + userCreated).json({ user: { email: user.email } });
   } catch (error) {
@@ -81,19 +77,22 @@ export async function googleLogin(req: Request, res: Response): Promise<void> {
   }
 }
 
+const client = new OAuth2Client(GOOGLE_CLIENT_ID);
+
 async function verifyGoogleIdToken(
   idToken: string
 ): Promise<{ email: string; googleId: string }> {
-  const client = new OAuth2Client(GOOGLE_CLIENT_ID);
-  const ticket: LoginTicket = await client.verifyIdToken({
-    idToken,
-    audience: GOOGLE_CLIENT_ID,
-  });
-  const payload: TokenPayload | undefined = ticket.getPayload();
+  const payload: TokenPayload | undefined = (
+    await client.verifyIdToken({
+      idToken,
+      audience: GOOGLE_CLIENT_ID,
+    })
+  ).getPayload();
+
   if (!payload || payload.aud != GOOGLE_CLIENT_ID) {
     throw new Error("Authentication failed: aud does not match client id");
   }
-  // the email is included in the scope so it will be in the returned payload
+
   return { email: payload.email as string, googleId: payload.sub };
 }
 
@@ -109,7 +108,7 @@ export async function appleLogin(
     });
 
     let user = await User.findOne({ appleId }, "email");
-    let userCreated: UserCreationStatus = UserCreationStatus.notCreated;
+    let userCreated: 0 | 1 = 0;
 
     if (!user) {
       user = await User.findOne({ email }, "email password googleId");
@@ -123,9 +122,10 @@ export async function appleLogin(
         await user.save();
       } else {
         user = await User.create({ email, appleId, confirmed: true });
-        userCreated = UserCreationStatus.created;
+        userCreated = 1;
       }
     }
+
     setCookieToken(res, user.token as string);
     res.status(200 + userCreated).json({ user: { email: user.email } });
   } catch (error) {
@@ -146,8 +146,10 @@ export async function verify(req: Request, res: Response): Promise<void> {
       res.status(404).json({ message: `Cannot find user with id ${userId}` });
       return;
     }
+
     user.confirmed = true;
     await user.save();
+
     setCookieToken(res, user.token as string);
     res.json({ user: { email: user.email } });
   } catch (error) {
