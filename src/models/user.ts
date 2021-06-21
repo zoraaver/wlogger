@@ -2,9 +2,18 @@ import { Schema, model, Document } from "mongoose";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import validator from "validator";
-import { JWT_SECRET, JWT_EMAIL_VERIFICATION_SECRET } from "../config/env";
-import { workoutPlanDocument } from "./workoutPlan";
+import {
+  JWT_SECRET,
+  JWT_EMAIL_VERIFICATION_SECRET,
+  CLIENT_URL,
+  VERIFICATION_EMAIL_TEMPLATE_ID,
+  SENDGRID_KEY,
+} from "../config/env";
+import { workoutPlanDocument, workoutPlanStatus } from "./workoutPlan";
 import { workoutLogDocument } from "./workoutLog";
+import sgMail from "@sendgrid/mail";
+
+sgMail.setApiKey(SENDGRID_KEY);
 
 export interface userDocument extends Document {
   email: string;
@@ -19,10 +28,11 @@ export interface userDocument extends Document {
   workoutLogs: Array<workoutLogDocument["_id"]>;
   authenticate: (password: string) => Promise<boolean>;
   getVerificationToken: () => string;
+  sendVerificationEmail: () => Promise<void>;
+  startWorkoutPlan: (workoutPlanId: string) => Promise<void>;
   token?: string;
   currentWorkoutPlan?: workoutPlanDocument["_id"];
 }
-// TODO: add field 'lastCompletedWorkoutDate' to user
 
 const userSchema = new Schema<userDocument>(
   {
@@ -88,6 +98,50 @@ userSchema.methods.authenticate = function (
 ): Promise<boolean> {
   if (!this.password) throw new Error("No password found for this user");
   return bcrypt.compare(password, this.password);
+};
+
+userSchema.methods.sendVerificationEmail = async function (): Promise<void> {
+  const token = this.getVerificationToken();
+  const verifyLink: string = `${CLIENT_URL}/verify/${token}`;
+
+  try {
+    await sgMail.send({
+      from: { email: "app@wlogger.uk", name: "wLogger" },
+      to: this.email,
+      dynamicTemplateData: { verifyLink },
+      templateId: VERIFICATION_EMAIL_TEMPLATE_ID,
+    });
+  } catch (error) {
+    console.error(error);
+  }
+};
+
+userSchema.methods.startWorkoutPlan = async function (
+  workoutPlanId: string
+): Promise<void> {
+  await this.populate({
+    path: "workoutPlans",
+    match: { _id: { $eq: workoutPlanId } },
+    select: "_id weeks.repeat",
+  })
+    .populate("currentWorkoutPlan")
+    .execPopulate();
+
+  if (!this.currentWorkoutPlan) this.currentWorkoutPlan = this.workoutPlans[0];
+
+  const previousWorkoutPlan: workoutPlanDocument = this.currentWorkoutPlan;
+  previousWorkoutPlan.status = "Not started";
+
+  await previousWorkoutPlan.save();
+
+  this.currentWorkoutPlan = this.workoutPlans[0];
+  this.currentWorkoutPlan.status = "In progress" as workoutPlanStatus;
+  this.currentWorkoutPlan.start = Date.now();
+
+  await Promise.all([
+    this.currentWorkoutPlan.save(),
+    this.updateOne({ currentWorkoutPlan: this.currentWorkoutPlan }),
+  ]);
 };
 
 export const User = model<userDocument>("User", userSchema);
