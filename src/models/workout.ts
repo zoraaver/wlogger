@@ -7,6 +7,8 @@ import {
   getCurrentWeekDay,
   millisecondsInDay,
   millisecondsInWeek,
+  weightUnit,
+  weightUnits,
 } from "../util/util";
 import {
   loggedExerciseDocument,
@@ -14,15 +16,9 @@ import {
   workoutLogDocument,
 } from "./workoutLog";
 
-export type incrementField = "weight" | "repetitions" | "sets";
-export const incrementFields: incrementField[] = [
-  "repetitions",
-  "sets",
-  "weight",
-];
+export const incrementFields = ["repetitions", "sets", "weight"] as const;
 
-export type weightUnit = "kg" | "lb";
-const weightUnits: weightUnit[] = ["kg", "lb"];
+export type incrementField = typeof incrementFields[number];
 
 export interface workoutDocument extends Document {
   dayOfWeek: Day;
