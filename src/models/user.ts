@@ -12,6 +12,7 @@ import {
 import { workoutPlanDocument, workoutPlanStatus } from "./workoutPlan";
 import { workoutLogDocument } from "./workoutLog";
 import sgMail from "@sendgrid/mail";
+import { exerciseDocument } from "./exercise";
 
 sgMail.setApiKey(SENDGRID_KEY);
 
@@ -26,6 +27,7 @@ export interface userDocument extends Document {
   appleId?: string;
   workoutPlans: Array<workoutPlanDocument["_id"] | workoutPlanDocument>;
   workoutLogs: Array<workoutLogDocument["_id"]>;
+  exercises: Array<exerciseDocument["_id"]>;
   authenticate: (password: string) => Promise<boolean>;
   getVerificationToken: () => string;
   sendVerificationEmail: () => Promise<void>;
@@ -55,6 +57,7 @@ const userSchema = new Schema<userDocument>(
     currentWorkoutPlan: { type: Schema.Types.ObjectId, ref: "WorkoutPlan" },
     workoutPlans: [{ type: Schema.Types.ObjectId, ref: "WorkoutPlan" }],
     workoutLogs: [{ type: Schema.Types.ObjectId, ref: "WorkoutLog" }],
+    exercises: [{ type: Schema.Types.ObjectId, ref: "Exercise" }],
   },
   { timestamps: true }
 );
