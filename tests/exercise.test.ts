@@ -111,6 +111,15 @@ describe("POST /exercises", () => {
       expect(response.body.error).toBe("Name is a required field");
     });
 
+    it("should responsd with a 406 if the exercise name is already taken", async () => {
+      await postExercise(validExerciseData);
+      const response = await postExercise(validExerciseData);
+
+      expect(response.status).toBe(406);
+      expect(response.body.field).toBe("name");
+      expect(response.body.error).toBe("Name is already taken");
+    });
+
     it("should respond with a 406 if the exercise name is over 100 characters", async () => {
       const response: Response = await postExercise({
         ...validExerciseData,
