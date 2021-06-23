@@ -6,6 +6,7 @@ import {
   WorkoutPlan,
   WorkoutDateResult,
   validateWeekPositions,
+  validateExerciseNames,
 } from "../models/workoutPlan";
 
 export async function create(
@@ -13,11 +14,18 @@ export async function create(
   res: Response<workoutPlanDocument | ResponseError>
 ): Promise<void> {
   try {
+    const user: userDocument = req.currentUser as userDocument;
+    await user.populate("exercises", "name").execPopulate();
+
+    validateExerciseNames(
+      user.exercises.map((exercise) => exercise.name),
+      req.body.weeks
+    );
+
     const workoutPlan: workoutPlanDocument = await WorkoutPlan.create(req.body);
 
     validateWeekPositions(req.body.weeks);
 
-    const user: userDocument = req.currentUser as userDocument;
     user.workoutPlans.push(workoutPlan._id);
     await user.save();
 
@@ -65,6 +73,7 @@ export async function update(
 
   try {
     validateWeekPositions(req.body.weeks);
+    validateExerciseNames(req.body.weeks);
 
     const workoutPlan: workoutPlanDocument | null =
       await WorkoutPlan.findByIdAndUpdate(id, req.body, {
