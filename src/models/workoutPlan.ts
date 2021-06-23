@@ -190,7 +190,7 @@ workoutPlanSchema.methods.findWorkoutInUpcomingWeeks = function (
   return "All workouts in the plan have been completed.";
 };
 
-export function validateWeekPositions(weeks: Week[] | undefined): void {
+export function validateWeekPositions(weeks?: Week[]): void {
   if (!weeks) return;
 
   weeks.sort((a: Week, b: Week) => a.position - b.position);
@@ -219,3 +219,22 @@ export const WorkoutPlan = model<workoutPlanDocument>(
   "WorkoutPlan",
   workoutPlanSchema
 );
+
+export function validateExerciseNames(
+  exerciseNames: string[],
+  weeks?: Week[]
+): void {
+  if (!weeks) return;
+
+  weeks.forEach((week, weekIndex) => {
+    week.workouts.forEach((workout, workoutIndex) => {
+      workout.exercises.forEach((exercise, exerciseIndex) => {
+        if (!exerciseNames.includes(exercise.name)) {
+          throw new Error(
+            `Validation error: weeks.${weekIndex}.workouts.${workoutIndex}.exercises.${exerciseIndex}.name: Exercise name is not valid`
+          );
+        }
+      });
+    });
+  });
+}
