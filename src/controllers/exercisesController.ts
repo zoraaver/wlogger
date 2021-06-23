@@ -8,9 +8,19 @@ export async function create(
   res: Response<exerciseDocument | ResponseError>
 ): Promise<void> {
   try {
+    const user = req.currentUser as userDocument;
+    await user.populate("exercises", "name").execPopulate();
+
+    const exerciseNameAlreadyTaken = user.exercises
+      .map((exercise) => exercise.name)
+      .includes(req.body.name);
+
+    if (exerciseNameAlreadyTaken) {
+      throw new Error("Validation error: name: Name is already taken");
+    }
+
     const exercise: exerciseDocument = await Exercise.create(req.body);
 
-    const user = req.currentUser as userDocument;
     user.exercises.unshift(exercise._id);
     await user.save();
 
