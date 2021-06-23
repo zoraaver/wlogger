@@ -66,11 +66,11 @@ afterAll(async () => {
   await mongoose.disconnect();
 });
 
-describe("POST /exercises", () => {
-  function postExercise(exercise: exerciseData): Test {
-    return request(app).post("/exercises").send(exercise);
-  }
+function postExercise(exercise: exerciseData): Test {
+  return request(app).post("/exercises").send(exercise);
+}
 
+describe("POST /exercises", () => {
   describe("with a valid request body", () => {
     it("should insert a new exercise into the database", async () => {
       await postExercise(validExerciseData);
@@ -132,5 +132,57 @@ describe("POST /exercises", () => {
       expect(response.body.field).toBe("notes");
       expect(response.body.error).toBe("Notes must be at most 500 characters");
     });
+  });
+});
+
+describe("GET /exercises", () => {
+  function getExercises(): Test {
+    return request(app).get("/exercises");
+  }
+  it("should respond with a list of the user's exercises sorted by name", async () => {
+    await postExercise({ name: "Z", notes: "Zambi" });
+    await postExercise({ name: "B" });
+    await postExercise({ name: "A" });
+
+    const response: Response = await getExercises();
+
+    expect(response.status).toBe(200);
+    expect(response.body).toHaveLength(3);
+    expect(response.body[0].name).toBe("A");
+    expect(response.body[1].name).toBe("B");
+    expect(response.body[2].name).toBe("Z");
+    expect(response.body[2].notes).toBe("Zambi");
+  });
+});
+
+describe("DELETE /exercises/:id", () => {
+  function deleteExercise(id: string): Test {
+    return request(app).delete(`/exercises/${id}`);
+  }
+
+  it("should remove the exercise from the database", async () => {
+    const postResponse = await postExercise(validExerciseData);
+    await postExercise({ name: "Another exercise" });
+
+    const exerciseToDeleteId = postResponse.body._id;
+
+    const response: Response = await deleteExercise(exerciseToDeleteId);
+
+    expect(response.status).toBe(200);
+    expect(response.body).toBe(exerciseToDeleteId);
+    expect(await Exercise.estimatedDocumentCount()).toBe(1);
+  });
+
+  it("should responsd with a 200 and remove the exercise id from the user's list of exercises", async () => {
+    const postResponse = await postExercise(validExerciseData);
+    await postExercise({ name: "Another exercise" });
+
+    const exerciseToDeleteId = postResponse.body._id;
+
+    await deleteExercise(exerciseToDeleteId);
+
+    const user = (await User.findOne()) as userDocument;
+
+    expect(user.exercises).toHaveLength(1);
   });
 });
