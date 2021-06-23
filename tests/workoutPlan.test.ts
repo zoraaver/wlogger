@@ -14,11 +14,48 @@ import { workoutLogData } from "./workoutLog.test";
 import { ObjectID } from "bson";
 import { WorkoutLog } from "../src/models/workoutLog";
 import { Day, weightUnit } from "../src/util/util";
+import { Exercise } from "../src/models/exercise";
+
+interface exerciseData {
+  name: string;
+  restInterval: number;
+  sets: number;
+  repetitions?: number;
+  weight?: number;
+  unit: weightUnit;
+  autoIncrement?: { field: incrementField; amount: number };
+}
+
+interface workoutPlanData {
+  name: string;
+  current?: boolean;
+  status?: workoutPlanStatus;
+  weeks: Array<weekData>;
+}
+
+interface weekData {
+  repeat?: number;
+  position: number;
+  workouts: Array<workoutData>;
+}
+
+interface workoutData {
+  dayOfWeek: Day;
+  exercises: Array<exerciseData>;
+}
 
 let user: userDocument;
 const userData = { email: "test@test.com", password: "password" };
 
-jest.mock("aws-sdk");
+const validExerciseData: exerciseData = {
+  name: "Squats",
+  restInterval: 100,
+  sets: 3,
+  repetitions: 10,
+  weight: 100,
+  unit: "kg",
+};
+
 jest.mock("../src/middleware/auth", () => ({
   setCurrentUser: jest
     .fn()
@@ -48,9 +85,13 @@ beforeAll(async () => {
     useCreateIndex: true,
     useFindAndModify: false,
   });
+
+  const exercise = await Exercise.create({ name: validExerciseData.name });
+
   user = await User.create({
     ...userData,
     confirmed: true,
+    exercises: [exercise.id],
   });
 });
 
@@ -65,43 +106,6 @@ afterAll(async () => {
   await User.deleteMany({});
   await mongoose.disconnect();
 });
-
-interface workoutPlanData {
-  name: string;
-  current?: boolean;
-  status?: workoutPlanStatus;
-  weeks: Array<weekData>;
-}
-
-interface weekData {
-  repeat?: number;
-  position: number;
-  workouts: Array<workoutData>;
-}
-
-interface workoutData {
-  dayOfWeek: Day;
-  exercises: Array<exerciseData>;
-}
-
-interface exerciseData {
-  name: string;
-  restInterval: number;
-  sets: number;
-  repetitions?: number;
-  weight?: number;
-  unit: weightUnit;
-  autoIncrement?: { field: incrementField; amount: number };
-}
-
-const validExerciseData: exerciseData = {
-  name: "Squats",
-  restInterval: 100,
-  sets: 3,
-  repetitions: 10,
-  weight: 100,
-  unit: "kg",
-};
 
 const validWorkoutPlanData: workoutPlanData = {
   name: "12 weeks",
@@ -304,13 +308,13 @@ describe("POST /workoutPlans", () => {
       expect(response.body.error).toBe("Invalid day of week");
     });
 
-    it("should respond with a 406 if an exercise has no name", async () => {
+    it("should respond with a 406 if an exercise name is not in the user's list of exercises", async () => {
       workoutPlanData.weeks[0].workouts[0].exercises[0].name =
-        undefined as unknown as string;
+        "Some random name";
       const response: Response = await postWorkoutPlan(workoutPlanData);
       expect(response.status).toBe(406);
       expect(response.body.field).toBe("weeks.0.workouts.0.exercises.0.name");
-      expect(response.body.error).toBe("Exercise name is required");
+      expect(response.body.error).toBe("Exercise name is not valid");
     });
 
     it("should respond with a 406 if sets is a non-positive number", async () => {
