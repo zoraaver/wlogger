@@ -52,7 +52,7 @@ export async function destroy(
   const user = req.currentUser as userDocument;
 
   const exerciseIndex: number | undefined = user.exercises.findIndex(
-    (exercise: exerciseDocument) => exercise.id === id
+    (exercise: exerciseDocument) => exercise.toString() === id
   );
 
   user.exercises.splice(exerciseIndex, 1);
