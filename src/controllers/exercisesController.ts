@@ -61,3 +61,22 @@ export async function destroy(
 
   res.json(id);
 }
+
+export async function update(
+  req: Request<{ id: string }>,
+  res: Response<exerciseDocument | ResponseError>
+): Promise<void> {
+  const { id } = req.params;
+  try {
+    const exercise: exerciseDocument | null = await Exercise.findByIdAndUpdate(
+      id,
+      req.body,
+      { new: true, runValidators: true }
+    );
+
+    if (exercise) res.json(exercise);
+  } catch (error) {
+    const [, field, message]: string[] = error.message.split(": ");
+    res.status(406).json({ field, error: message });
+  }
+}
