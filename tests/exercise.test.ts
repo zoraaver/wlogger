@@ -195,3 +195,37 @@ describe("DELETE /exercises/:id", () => {
     expect(user.exercises).toHaveLength(1);
   });
 });
+
+describe("PATCH /exercises/:id", () => {
+  function patchExercise(id: string, data: exerciseData): Test {
+    return request(app).patch(`/exercises/${id}`).send(data);
+  }
+
+  it("should update the exercise in the database", async () => {
+    const response: Response = await postExercise({
+      name: "Pullups",
+      notes: "Some notes",
+    });
+
+    await patchExercise(response.body._id, validExerciseData);
+
+    const exercise: exerciseDocument | null = await Exercise.findOne();
+
+    expect(exercise).not.toBeNull();
+    expect(exercise?.name).toBe(validExerciseData.name);
+    expect(exercise?.notes).toBe(validExerciseData.notes);
+  });
+
+  it("should respond with a 200 and the updated exercise", async () => {
+    let response: Response = await postExercise({
+      name: "Pullups",
+      notes: "Some notes",
+    });
+
+    response = await patchExercise(response.body._id, validExerciseData);
+
+    expect(response.status).toBe(200);
+    expect(response.body.name).toBe(validExerciseData.name);
+    expect(response.body.notes).toBe(validExerciseData.notes);
+  });
+});
