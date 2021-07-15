@@ -8,3 +8,4 @@ Built using:
 - Express
 - MongoDB
 - TypeScript
+- AWS S3
